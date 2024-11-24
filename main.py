@@ -120,7 +120,7 @@ if ticker:
         st.subheader("Price Predictions")
         predictions = get_prediction(df, ticker)
         
-        timeframe_tabs = st.tabs(['Short-term', 'Medium-term', 'Long-term'])
+        timeframe_tabs = st.tabs(['Daily', 'Short-term', 'Medium-term', 'Long-term'])
         
         for tab, (timeframe, pred) in zip(timeframe_tabs, predictions.items()):
             with tab:
