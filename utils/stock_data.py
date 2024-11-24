@@ -40,36 +40,47 @@ def search_stocks(query: str) -> list:
         if not query or len(query) < 2:
             return []
             
-        # Common stock exchanges to search
-        exchanges = ['NASDAQ', 'NYSE']
         results = []
         
-        for exchange in exchanges:
+        # Search using yfinance
+        tickers = yf.Tickers(query)
+        for ticker in tickers.tickers:
             try:
-                # Search for stocks in each exchange
-                stock = yf.Ticker(f"{query}.{exchange}")
-                if 'longName' in stock.info:
+                info = ticker.info
+                if 'longName' in info:
                     results.append({
-                        'symbol': f"{query}",
-                        'name': stock.info['longName'],
-                        'exchange': exchange
+                        'symbol': info.get('symbol', ''),
+                        'name': info.get('longName', ''),
+                        'exchange': info.get('exchange', 'Unknown')
                     })
             except:
                 continue
                 
-        # Also try searching without exchange
+        # Also search Yahoo Finance API for company names
         try:
-            stock = yf.Ticker(query)
-            if 'longName' in stock.info:
+            url = "https://query2.finance.yahoo.com/v1/finance/search"
+            params = {'q': query, 'quotesCount': 10, 'newsCount': 0}
+            r = requests.get(url, params=params)
+            data = r.json()
+            
+            for quote in data.get('quotes', []):
                 results.append({
-                    'symbol': query,
-                    'name': stock.info['longName'],
-                    'exchange': stock.info.get('exchange', 'Unknown')
+                    'symbol': quote.get('symbol', ''),
+                    'name': quote.get('longname', quote.get('shortname', '')),
+                    'exchange': quote.get('exchange', 'Unknown')
                 })
         except:
             pass
             
-        return results[:10]  # Limit to 10 suggestions
+        # Remove duplicates and sort by relevance
+        unique_results = []
+        seen = set()
+        for item in results:
+            if item['symbol'] not in seen:
+                seen.add(item['symbol'])
+                unique_results.append(item)
+                
+        return unique_results[:10]
     except Exception as e:
         st.error(f"Error searching stocks: {str(e)}")
         return []

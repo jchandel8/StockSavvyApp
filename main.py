@@ -28,11 +28,11 @@ stock_suggestions = search_stocks(search_query)
 
 if stock_suggestions:
     # Create a list of formatted options for the selectbox
-    options = [f"{stock['symbol']} - {stock['name']} ({stock['exchange']})" for stock in stock_suggestions]
+    options = [f"{stock['name']} ({stock['symbol']})" for stock in stock_suggestions]
     selected = st.selectbox("Select a stock", options, key="stock_select")
     
     # Extract the ticker from the selected option
-    ticker = selected.split(" - ")[0] if selected else ""
+    ticker = selected.split("(")[-1].strip(")") if selected else ""
 else:
     ticker = search_query
 
