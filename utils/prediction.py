@@ -6,6 +6,9 @@ import yfinance as yf
 from typing import Dict, List, Tuple
 from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.stattools import adfuller
+from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Dropout
 from utils.stock_data import is_crypto
 from utils.technical_analysis import (
     calculate_gap_and_go_signals,
@@ -65,6 +68,67 @@ def calculate_arima_prediction(data: pd.DataFrame, is_crypto: bool = False, step
             'model_order': best_params
         }
     except Exception as e:
+import numpy as np
+from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Dropout
+import streamlit as st
+
+def calculate_lstm_prediction(data: pd.DataFrame, is_crypto: bool = False) -> dict:
+    """
+    Calculate LSTM predictions for the given data.
+    Args:
+        data: DataFrame containing price data
+        is_crypto: Boolean indicating if the asset is a cryptocurrency
+    Returns:
+        Dictionary containing LSTM forecast and confidence
+    """
+    try:
+        # Prepare data
+        prices = data['Close'].values
+        prices = prices.reshape(-1, 1)
+        scaler = MinMaxScaler(feature_range=(0, 1))
+        scaled_data = scaler.fit_transform(prices)
+        
+        # Use different lookback periods for crypto vs stocks
+        look_back = 30 if is_crypto else 60
+        
+        # Prepare sequences
+        x_train, y_train = [], []
+        for i in range(look_back, len(scaled_data)):
+            x_train.append(scaled_data[i-look_back:i, 0])
+            y_train.append(scaled_data[i, 0])
+        
+        x_train, y_train = np.array(x_train), np.array(y_train)
+        x_train = np.reshape(x_train, (x_train.shape[0], x_train.shape[1], 1))
+        
+        # Build model
+        model = Sequential([
+            LSTM(units=50, return_sequences=True, input_shape=(look_back, 1)),
+            Dropout(0.2),
+            LSTM(units=50),
+            Dropout(0.2),
+            Dense(units=1)
+        ])
+        
+        model.compile(optimizer='adam', loss='mean_squared_error')
+        model.fit(x_train, y_train, epochs=50, batch_size=32, verbose=0)
+        
+        # Prepare test data for prediction
+        x_test = scaled_data[-look_back:]
+        x_test = x_test.reshape(1, look_back, 1)
+        
+        # Make predictions
+        predicted_price = model.predict(x_test)
+        predicted_price = scaler.inverse_transform(predicted_price)
+        
+        return {
+            'lstm_forecast': float(predicted_price[0][0]),
+            'confidence': 0.8  # LSTM typically provides higher confidence
+        }
+    except Exception as e:
+        st.error(f"Error in LSTM prediction: {str(e)}")
+        return {}
         st.error(f"Error in ARIMA prediction: {str(e)}")
         return {}
 

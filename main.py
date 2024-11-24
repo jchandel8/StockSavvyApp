@@ -148,6 +148,12 @@ if ticker:
                         st.metric("Upper Bound", f"${pred['arima_upper']:.2f}")
                         if 'model_order' in pred:
                             st.write(f"Model Order (p,d,q): {pred['model_order']}")
+                
+                if 'lstm_forecast' in pred:
+                    with st.expander("Deep Learning Analysis"):
+                        st.metric("LSTM Forecast", f"${pred['lstm_forecast']:.2f}")
+                        if 'combined_forecast' in pred:
+                            st.metric("Combined Forecast", f"${pred['combined_forecast']:.2f}")
         
         # Fundamental Analysis
         st.subheader("Fundamental Analysis")
