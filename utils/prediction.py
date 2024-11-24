@@ -13,7 +13,8 @@ def calculate_trend_strength(data: pd.DataFrame) -> float:
     try:
         # Calculate price momentum
         returns = data['Close'].pct_change()
-        momentum = float(returns.rolling(window=20).mean().iloc[-1])
+        momentum_series = returns.rolling(window=20).mean()
+        momentum = float(momentum_series.iloc[-1]) if not momentum_series.empty else 0.0
         
         # Calculate trend consistency
         direction_changes = (returns[1:] * returns[:-1].values < 0).sum()
@@ -85,8 +86,9 @@ def analyze_volume_profile(data: pd.DataFrame) -> float:
         volume_profile = data.groupby(price_levels)['Volume'].mean()
         
         # Current price level's volume ratio
-        current_price = data['Close'].iloc[-1]
-        current_level_volume = volume_profile[price_levels.iloc[-1]]
+        current_price = float(data['Close'].iloc[-1])
+        current_level = price_levels.iloc[-1]
+        current_level_volume = float(volume_profile[current_level])
         avg_volume = volume_profile.mean()
         
         volume_ratio = current_level_volume / avg_volume

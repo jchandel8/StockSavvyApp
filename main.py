@@ -1,9 +1,35 @@
 import streamlit as st
+import pandas as pd
 from utils.stock_data import get_stock_data, get_stock_info, search_stocks
 from utils.technical_analysis import calculate_indicators, generate_signals
-from utils.fundamental_analysis import get_fundamental_metrics, analyze_fundamentals
-import streamlit as st
-import pandas as pd
+from utils.fundamental_analysis import get_fundamental_metrics, analyze_fundamentals, format_market_cap
+
+def get_direction_indicator(direction: str) -> str:
+    colors = {
+        'UP': '#22c55e',  # Green
+        'DOWN': '#ef4444',  # Red
+        'NEUTRAL': '#6b7280'  # Gray
+    }
+    return f'''
+        <div style="display: inline-flex; align-items: center; gap: 8px;">
+            <div style="
+                width: 10px;
+                height: 10px;
+                background: {colors[direction]};
+                border-radius: 50%;
+                box-shadow: 0 0 4px {colors[direction]};
+                animation: pulse 2s infinite;
+            "></div>
+            <span>{direction}</span>
+            <style>
+                @keyframes pulse {{
+                    0% {{ box-shadow: 0 0 0 0 {colors[direction]}66; }}
+                    70% {{ box-shadow: 0 0 0 6px {colors[direction]}00; }}
+                    100% {{ box-shadow: 0 0 0 0 {colors[direction]}00; }}
+                }}
+            </style>
+        </div>
+    '''
 from utils.stock_data import get_stock_data, get_stock_info, search_stocks
 from utils.technical_analysis import calculate_indicators, generate_signals
 from utils.fundamental_analysis import get_fundamental_metrics, analyze_fundamentals
@@ -60,7 +86,7 @@ if ticker:
             st.metric("Current Price", f"${df['Close'].iloc[-1]:.2f}", 
                      f"{((df['Close'].iloc[-1] - df['Close'].iloc[-2])/df['Close'].iloc[-2]*100):.2f}%")
         with col2:
-            st.metric("Market Cap", info['market_cap'])
+            st.metric("Market Cap", format_market_cap(info['market_cap']))
         with col3:
             st.metric("Sector", info['sector'])
         
@@ -87,12 +113,7 @@ if ticker:
                 pred_cols = st.columns(4)
                 
                 with pred_cols[0]:
-                    direction_color = {
-                        'UP': '🟢',
-                        'DOWN': '🔴',
-                        'NEUTRAL': '⚪'
-                    }.get(pred['direction'], '⚪')
-                    st.metric("Direction", f"{direction_color} {pred['direction']}")
+                    st.markdown(get_direction_indicator(pred['direction']), unsafe_allow_html=True)
                 
                 with pred_cols[1]:
                     st.metric("Confidence", f"{pred['confidence']*100:.1f}%")
