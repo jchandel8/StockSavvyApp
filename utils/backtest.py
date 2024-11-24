@@ -37,7 +37,6 @@ def backtest_prediction_model(df: pd.DataFrame, initial_investment: float) -> di
         confidence = prediction.get('confidence', 0)
         
         # Trading logic
-        entry_price = current_price
         if position is None:  # No position
             if current_price < predicted_low and confidence > 0.6:
                 # Buy signal with high confidence
@@ -46,6 +45,7 @@ def backtest_prediction_model(df: pd.DataFrame, initial_investment: float) -> di
                 position = 'long'
                 cash -= position_size
                 total_trades += 1
+                entry_price = current_price
         else:  # In position
             position_value = shares * current_price
             
@@ -106,7 +106,7 @@ def create_backtest_chart(history: pd.DataFrame) -> go.Figure:
     
     # Portfolio value
     fig.add_trace(go.Scatter(
-        x=history.index,
+        x=history['date'],
         y=history['portfolio_value'],
         name='Portfolio Value',
         line=dict(color='#FF4B4B', width=2)
@@ -114,7 +114,7 @@ def create_backtest_chart(history: pd.DataFrame) -> go.Figure:
     
     # Actual price
     fig.add_trace(go.Scatter(
-        x=history.index,
+        x=history['date'],
         y=history['actual_price'],
         name='Stock Price',
         line=dict(color='#4B4BFF', width=1)
@@ -124,8 +124,8 @@ def create_backtest_chart(history: pd.DataFrame) -> go.Figure:
     long_entries = history[history['position'] == 'long'].index
     if len(long_entries) > 0:
         fig.add_trace(go.Scatter(
-            x=long_entries,
-            y=history.loc[long_entries, 'actual_price'],
+            x=history['date'][long_entries],
+            y=history['actual_price'][long_entries],
             mode='markers',
             name='Buy Signal',
             marker=dict(color='green', size=10, symbol='triangle-up')

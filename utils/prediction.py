@@ -12,154 +12,55 @@ from utils.technical_analysis import (
     calculate_mvrv_ratio
 )
 
-def calculate_rsi(prices: pd.Series, period: int = 14) -> pd.Series:
-    # Calculate price changes
-    delta = prices.diff()
-    
-    # Get gains and losses
-    gains = delta.copy()
-    losses = delta.copy()
-    gains[gains < 0] = 0
-    losses[losses > 0] = 0
-    losses = abs(losses)
-    
-    # Calculate average gains and losses
-    avg_gains = gains.rolling(window=period).mean()
-    avg_losses = losses.rolling(window=period).mean()
-    
-    # Calculate RS and RSI
-    rs = avg_gains / avg_losses
-    rsi = 100 - (100 / (1 + rs))
-    return rsi
-
-def calculate_macd(prices: pd.Series) -> tuple:
-    # Calculate EMAs
-    exp1 = prices.ewm(span=12, adjust=False).mean()
-    exp2 = prices.ewm(span=26, adjust=False).mean()
-    
-    # Calculate MACD and Signal Line
-    macd = exp1 - exp2
-    signal = macd.ewm(span=9, adjust=False).mean()
-    return macd, signal
-
-def calculate_bollinger_bands(prices: pd.Series, period: int = 20) -> tuple:
-    # Calculate middle band (SMA)
-    middle_band = prices.rolling(window=period).mean()
-    
-    # Calculate standard deviation
-    std = prices.rolling(window=period).std()
-    
-    # Calculate upper and lower bands
-    upper_band = middle_band + (std * 2)
-    lower_band = middle_band - (std * 2)
-    
-    return upper_band, lower_band
-
-def calculate_atr(data, period=14):
-    """Calculate Average True Range."""
-    high = data['High']
-    low = data['Low']
-    close = data['Close']
-    
-    tr1 = high - low
-    tr2 = abs(high - close.shift())
-    tr3 = abs(low - close.shift())
-    
-    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-    atr = tr.rolling(window=period).mean()
-    return atr
-
-def build_lstm_model(X, y):
-    """Build and train LSTM model."""
-    from tensorflow.keras.models import Sequential
-    from tensorflow.keras.layers import LSTM, Dense, Dropout
-    
-    model = Sequential([
-        LSTM(50, return_sequences=True, input_shape=(X.shape[1], 1)),
-        Dropout(0.2),
-        LSTM(50),
-        Dropout(0.2),
-        Dense(1)
-    ])
-    model.compile(optimizer='adam', loss='mse')
-    model.fit(X, y, epochs=50, batch_size=32, verbose=0)
-    return model
-
 def calculate_prediction(data: pd.DataFrame, timeframe: str = 'short_term', look_back: int = None) -> dict:
+    # Set look_back periods based on timeframe
+    if look_back is None:
+        look_back = {
+            'daily': 15,       # 1 day prediction
+            'short_term': 30,  # 1 week prediction
+            'medium_term': 60, # 1 month prediction
+            'long_term': 90    # 3 months prediction
+        }.get(timeframe, 30)
+    
     try:
-        from sklearn.ensemble import RandomForestRegressor
-        from xgboost import XGBRegressor
-        from sklearn.svm import SVR
+        # Prepare data with specific look_back
+        prices = np.array(data['Close']).reshape(-1, 1)
+        scaler = MinMaxScaler(feature_range=(0, 1))
+        scaled_data = scaler.fit_transform(prices)
         
-        # Feature Engineering
-        features = pd.DataFrame()
+        # Prepare sequences with timeframe-specific look_back
+        X, y = [], []
+        for i in range(look_back, len(scaled_data)):
+            X.append(scaled_data[i-look_back:i, 0])
+            y.append(scaled_data[i, 0])
         
-        # Technical Indicators
-        features['rsi'] = calculate_rsi(data['Close'])
-        features['macd'], features['signal'] = calculate_macd(data['Close'])
-        features['bb_upper'], features['bb_lower'] = calculate_bollinger_bands(data['Close'])
-        features['atr'] = calculate_atr(data[['High', 'Low', 'Close']])
+        X, y = np.array(X), np.array(y)
         
-        # Volume Analysis
-        features['volume_sma'] = data['Volume'].rolling(window=20).mean()
-        features['volume_std'] = data['Volume'].rolling(window=20).std()
+        # Train model
+        model = LinearRegression()
+        model.fit(X, y)
         
-        # Price Momentum
-        features['price_momentum'] = data['Close'].pct_change(periods=5)
-        features['price_acceleration'] = features['price_momentum'].diff()
+        # Make prediction
+        last_sequence = scaled_data[-look_back:].reshape(1, -1)
+        predicted_scaled = model.predict(last_sequence)
+        predicted_price = scaler.inverse_transform(predicted_scaled.reshape(-1, 1))
         
-        # Volatility
-        features['volatility'] = data['Close'].pct_change().rolling(window=20).std()
+        # Calculate volatility factor based on timeframe
+        volatility = np.std(data['Close'].pct_change().dropna())
+        volatility_factor = {
+            'short_term': 1.0,
+            'medium_term': 1.5,
+            'long_term': 2.0
+        }.get(timeframe, 1.0)
         
-        # Market Trend
-        features['trend_strength'] = calculate_trend_strength(data)
-        
-        # Prepare data for models
-        X = features.dropna().values
-        y = data['Close'].shift(-1).dropna().values[:-1]
-        
-        if len(X) < 2 or len(y) < 2:
-            return {}
-        
-        # Train multiple models
-        models = {
-            'rf': RandomForestRegressor(n_estimators=100, random_state=42),
-            'xgb': XGBRegressor(objective='reg:squarederror', random_state=42),
-            'svr': SVR(kernel='rbf')
-        }
-        
-        # Train and make predictions
-        predictions = {}
-        weights = {'rf': 0.4, 'xgb': 0.4, 'svr': 0.2}
-        
-        for name, model in models.items():
-            try:
-                model.fit(X[:-1], y)
-                pred = model.predict(X[-1:])
-                predictions[name] = pred[0]
-            except Exception as e:
-                st.error(f"Error in {name} model: {str(e)}")
-                continue
-        
-        if not predictions:
-            return {}
-        
-        # Weighted ensemble prediction
-        final_prediction = sum(predictions[model] * weight 
-                             for model, weight in weights.items()
-                             if model in predictions)
-        
-        # Calculate confidence based on model agreement
-        std_predictions = np.std(list(predictions.values()))
-        max_std = np.std(data['Close'])
-        confidence = 1 - (std_predictions / max_std) if max_std > 0 else 0.5
+        # Adjust confidence based on timeframe and volatility
+        base_confidence = max(min(model.score(X, y), 1.0), 0.0)
+        adjusted_confidence = base_confidence * (1 / (1 + volatility * volatility_factor))
         
         return {
-            'forecast': final_prediction,
-            'confidence': confidence,
-            'model_predictions': predictions
+            'forecast': float(predicted_price[0][0]),
+            'confidence': adjusted_confidence
         }
-        
     except Exception as e:
         st.error(f"Error in prediction: {str(e)}")
         return {}
