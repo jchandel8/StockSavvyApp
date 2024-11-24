@@ -1,0 +1,85 @@
+//@version=5
+strategy("Multi-Strategy Trading System", overlay=true)
+
+// Define input variables
+gapAndGo = input(true, "Gap and Go Swing Trading Strategy")
+stockSplitPower = input(true, "Stock Split Power")
+trendContinuation = input(true, "Trend Continuation Trading Strategy")
+fibonacciRetracement = input(true, "Fibonacci Retracement Strategy")
+weeklyTrendLineBreak = input(true, "Weekly Trend Line Break to Go Short")
+flatEMA = input(true, "Flat EMA Trading Strategy")
+pyramidScheme = input(true, "The Pyramid Scheme")
+
+// Gap and Go Swing Trading Strategy
+gapAndGoBuySignal = close > open and open[1] > close[1]
+gapAndGoSellSignal = close < open and open[1] < close[1]
+
+// Stock Split Power
+stockSplitBuySignal = close > open and volume > volume[1]
+stockSplitSellSignal = close < open and volume > volume[1]
+
+// Trend Continuation Trading Strategy
+trendContinuationBuySignal = ta.sma(close, 5) > ta.sma(close, 10)
+trendContinuationSellSignal = ta.sma(close, 5) < ta.sma(close, 10)
+
+// Fibonacci Retracement Strategy
+fibonacciBuySignal = high > ta.highest(high, 10)[1] and low < ta.lowest(low, 10)[1]
+fibonacciSellSignal = high < ta.highest(high, 10)[1] and low > ta.lowest(low, 10)[1]
+
+// Weekly Trend Line Break to Go Short
+weeklyTrendLineBreakBuySignal = close > ta.ema(close, 50) and close[1] <= ta.ema(close, 50)[1]
+weeklyTrendLineBreakSellSignal = close < ta.ema(close, 50) and close[1] >= ta.ema(close, 50)[1]
+
+// Flat EMA Trading Strategy
+flatEMABuySignal = ta.ema(close, 20) == ta.ema(close, 50)
+flatEMASellSignal = ta.ema(close, 20) == ta.ema(close, 50)
+
+// The Pyramid Scheme
+pyramidBuySignal = ta.sma(high, 9) > ta.sma(low, 26)
+pyramidSellSignal = ta.sma(high, 9) < ta.sma(low, 26)
+
+// Count the number of buy/sell signals from each strategy
+buyCount = 0
+sellCount = 0
+
+if gapAndGo
+    buyCount := buyCount + (gapAndGoBuySignal ? 1 : 0)
+    sellCount := sellCount + (gapAndGoSellSignal ? 1 : 0)
+
+if stockSplitPower
+    buyCount := buyCount + (stockSplitBuySignal ? 1 : 0)
+    sellCount := sellCount + (stockSplitSellSignal ? 1 : 0)
+
+if trendContinuation
+    buyCount := buyCount + (trendContinuationBuySignal ? 1 : 0)
+    sellCount := sellCount + (trendContinuationSellSignal ? 1 : 0)
+
+if fibonacciRetracement
+    buyCount := buyCount + (fibonacciBuySignal ? 1 : 0)
+    sellCount := sellCount + (fibonacciSellSignal ? 1 : 0)
+
+if weeklyTrendLineBreak
+    buyCount := buyCount + (weeklyTrendLineBreakBuySignal ? 1 : 0)
+    sellCount := sellCount + (weeklyTrendLineBreakSellSignal ? 1 : 0)
+
+if flatEMA
+    buyCount := buyCount + (flatEMABuySignal ? 1 : 0)
+    sellCount := sellCount + (flatEMASellSignal ? 1 : 0)
+
+if pyramidScheme
+    buyCount := buyCount + (pyramidBuySignal ? 1 : 0)
+    sellCount := sellCount + (pyramidSellSignal ? 1 : 0)
+
+// Determine the overall buy or sell signal
+buySignal = buyCount > sellCount
+sellSignal = sellCount > buyCount
+
+// Plot buy and sell signals on the chart
+plotshape(buySignal, title="Buy Signal", location=location.belowbar, color=color.green, style=shape.labelup, text="BUY")
+plotshape(sellSignal, title="Sell Signal", location=location.abovebar, color=color.red, style=shape.labeldown, text="SELL")
+
+// Strategy entry and exit
+strategy.entry("Long", strategy.long, when=buySignal)
+strategy.entry("Short", strategy.short, when=sellSignal)
+strategy.close("Long", when=sellSignal)
+strategy.close("Short", when=buySignal)

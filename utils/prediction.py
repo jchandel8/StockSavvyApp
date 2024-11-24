@@ -4,6 +4,12 @@ from datetime import datetime, timedelta
 import streamlit as st
 import yfinance as yf
 from typing import Dict, List, Tuple
+from utils.technical_analysis import (
+    calculate_gap_and_go_signals,
+    calculate_trend_continuation,
+    calculate_fibonacci_signals,
+    calculate_weekly_trendline_break
+)
 
 def calculate_trend_strength(data: pd.DataFrame) -> float:
     """Calculate the strength of the current trend."""
@@ -199,13 +205,28 @@ def predict_price_movement(data: pd.DataFrame, ticker: str) -> dict:
         volatility_data = data.tail(params['volatility_window'])
         volatility = volatility_data['Close'].std() / volatility_data['Close'].mean()
         
-        # Combine all factors
+        # Calculate additional signals
+        gap_and_go = calculate_gap_and_go_signals(window_data).iloc[-1]
+        trend_continuation = calculate_trend_continuation(window_data).iloc[-1]
+        fibonacci = calculate_fibonacci_signals(window_data).iloc[-1]
+        weekly_trendline = calculate_weekly_trendline_break(window_data).iloc[-1]
+        
+        # Count agreeing signals
+        signal_agreement = sum([
+            gap_and_go,
+            trend_continuation,
+            fibonacci,
+            weekly_trendline
+        ]) / 4.0  # Normalize to 0-1
+        
+        # Combine all factors with updated weights
         combined_score = (
-            trend_strength * 0.3 +
-            technical_score * 0.3 +
-            fundamental_score * 0.2 +
-            market_cycle_score * 0.1 +
-            volume_profile_score * 0.1
+            trend_strength * 0.25 +
+            technical_score * 0.25 +
+            fundamental_score * 0.15 +
+            market_cycle_score * 0.10 +
+            volume_profile_score * 0.10 +
+            signal_agreement * 0.15
         )
         
         # Adjust predicted range based on support/resistance

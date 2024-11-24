@@ -137,7 +137,7 @@ def generate_signals(df: pd.DataFrame) -> dict:
         signals['status'] = 'no_data'
         return signals
     
-    required_columns = ['Close', 'RSI', 'MACD_Hist', 'SMA_50']
+    required_columns = ['Close', 'Open', 'High', 'Low', 'RSI', 'MACD_Hist', 'SMA_50']
     if not all(col in df.columns for col in required_columns):
         logger.error(f"Missing required columns for signal generation: {[col for col in required_columns if col not in df.columns]}")
         signals['status'] = 'missing_data'
@@ -145,6 +145,12 @@ def generate_signals(df: pd.DataFrame) -> dict:
     
     try:
         logger.info("Starting signal generation process")
+        
+        # Calculate new signals
+        gap_and_go = calculate_gap_and_go_signals(df)
+        trend_continuation = calculate_trend_continuation(df)
+        fibonacci = calculate_fibonacci_signals(df)
+        weekly_trendline = calculate_weekly_trendline_break(df)
         
         # Get latest values and check for NaN
         latest_values = {
@@ -154,7 +160,11 @@ def generate_signals(df: pd.DataFrame) -> dict:
             'close_current': df['Close'].iloc[-1],
             'close_prev': df['Close'].iloc[-2],
             'sma50_current': df['SMA_50'].iloc[-1],
-            'sma50_prev': df['SMA_50'].iloc[-2]
+            'sma50_prev': df['SMA_50'].iloc[-2],
+            'gap_and_go': gap_and_go.iloc[-1],
+            'trend_continuation': trend_continuation.iloc[-1],
+            'fibonacci': fibonacci.iloc[-1],
+            'weekly_trendline': weekly_trendline.iloc[-1]
         }
         
         # Check for NaN values
@@ -193,6 +203,30 @@ def generate_signals(df: pd.DataFrame) -> dict:
             signals['sell_signals'].append('Price crossed below 50-day MA')
             logger.info("MA bearish crossover signal generated")
         
+        # Gap and Go Signals
+        logger.info("Checking Gap and Go signals")
+        if latest_values['gap_and_go']:
+            signals['buy_signals'].append('Gap and Go pattern detected')
+            logger.info("Gap and Go signal generated")
+        
+        # Trend Continuation Signals
+        logger.info("Checking Trend Continuation signals")
+        if latest_values['trend_continuation']:
+            signals['buy_signals'].append('Trend continuation confirmed')
+            logger.info("Trend continuation signal generated")
+        
+        # Fibonacci Signals
+        logger.info("Checking Fibonacci signals")
+        if latest_values['fibonacci']:
+            signals['buy_signals'].append('Fibonacci retracement level reached')
+            logger.info("Fibonacci signal generated")
+        
+        # Weekly Trendline Break Signals
+        logger.info("Checking Weekly Trendline Break signals")
+        if latest_values['weekly_trendline']:
+            signals['buy_signals'].append('Weekly trendline breakout')
+            logger.info("Weekly trendline break signal generated")
+        
         signals['status'] = 'complete'
         logger.info("Signal generation completed successfully")
         return signals
@@ -201,3 +235,56 @@ def generate_signals(df: pd.DataFrame) -> dict:
         logger.error(f"Error generating signals: {str(e)}")
         signals['status'] = 'error'
         return signals
+
+def calculate_gap_and_go_signals(df: pd.DataFrame) -> pd.Series:
+    """Calculate Gap and Go signals."""
+    try:
+        if df is None or df.empty or not all(col in df.columns for col in ['Close', 'Open']):
+            logger.error("Invalid data for Gap and Go calculation")
+            return pd.Series(False, index=df.index if df is not None else None)
+            
+        return (df['Close'] > df['Open']) & (df['Open'].shift(1) > df['Close'].shift(1))
+    except Exception as e:
+        logger.error(f"Error calculating Gap and Go signals: {str(e)}")
+        return pd.Series(False, index=df.index if df is not None else None)
+
+def calculate_trend_continuation(df: pd.DataFrame) -> pd.Series:
+    """Calculate Trend Continuation signals."""
+    try:
+        if df is None or df.empty or 'Close' not in df.columns:
+            logger.error("Invalid data for Trend Continuation calculation")
+            return pd.Series(False, index=df.index if df is not None else None)
+            
+        sma5 = df['Close'].rolling(window=5).mean()
+        sma10 = df['Close'].rolling(window=10).mean()
+        return sma5 > sma10
+    except Exception as e:
+        logger.error(f"Error calculating Trend Continuation signals: {str(e)}")
+        return pd.Series(False, index=df.index if df is not None else None)
+
+def calculate_fibonacci_signals(df: pd.DataFrame) -> pd.Series:
+    """Calculate Fibonacci Retracement signals."""
+    try:
+        if df is None or df.empty or not all(col in df.columns for col in ['High', 'Low']):
+            logger.error("Invalid data for Fibonacci signals calculation")
+            return pd.Series(False, index=df.index if df is not None else None)
+            
+        high_10d = df['High'].rolling(window=10).max()
+        low_10d = df['Low'].rolling(window=10).min()
+        return (df['High'] > high_10d.shift(1)) & (df['Low'] < low_10d.shift(1))
+    except Exception as e:
+        logger.error(f"Error calculating Fibonacci signals: {str(e)}")
+        return pd.Series(False, index=df.index if df is not None else None)
+
+def calculate_weekly_trendline_break(df: pd.DataFrame) -> pd.Series:
+    """Calculate Weekly Trendline Break signals."""
+    try:
+        if df is None or df.empty or 'Close' not in df.columns:
+            logger.error("Invalid data for Weekly Trendline Break calculation")
+            return pd.Series(False, index=df.index if df is not None else None)
+            
+        ema50 = df['Close'].ewm(span=50, adjust=False).mean()
+        return (df['Close'] > ema50) & (df['Close'].shift(1) <= ema50.shift(1))
+    except Exception as e:
+        logger.error(f"Error calculating Weekly Trendline Break signals: {str(e)}")
+        return pd.Series(False, index=df.index if df is not None else None)
