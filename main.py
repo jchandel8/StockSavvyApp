@@ -134,10 +134,18 @@ if ticker:
             # Calculate backtest results
             backtest_results = backtest_prediction_model(df, initial_investment)
             
-            # Display results
-            st.metric("Final Portfolio Value", f"${backtest_results['final_value']:.2f}")
-            st.metric("Total Return", f"{backtest_results['total_return']:.2f}%")
-            st.metric("Prediction Accuracy", f"{backtest_results['accuracy']:.2f}%")
+            # Display backtest results
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Final Portfolio Value", f"${backtest_results['final_value']:.2f}")
+                st.metric("Total Return", f"{backtest_results['total_return']:.2f}%")
+            with col2:
+                st.metric("Total Trades", str(backtest_results['total_trades']))
+                st.metric("Win Rate", f"{backtest_results['win_rate']:.2f}%")
+            with col3:
+                st.metric("Prediction Accuracy", f"{backtest_results['accuracy']:.2f}%")
+                roi_per_trade = backtest_results['total_return'] / backtest_results['total_trades'] if backtest_results['total_trades'] > 0 else 0
+                st.metric("Avg ROI per Trade", f"{roi_per_trade:.2f}%")
             
             # Show backtest chart
             st.plotly_chart(create_backtest_chart(backtest_results['history']), use_container_width=True)
