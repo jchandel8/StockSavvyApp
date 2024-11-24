@@ -86,7 +86,10 @@ if ticker:
         with col2:
             st.metric("Market Cap", format_market_cap(info['market_cap']))
         with col3:
-            st.metric("Sector", info['sector'])
+            if info.get('type') == 'crypto':
+                st.metric("24h Volume", format_market_cap(info.get('volume_24h', 0)))
+            else:
+                st.metric("Sector", info.get('sector', 'N/A'))
         
         # Technical Analysis
         st.subheader("Technical Analysis")

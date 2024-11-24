@@ -24,11 +24,25 @@ def is_crypto(symbol: str) -> bool:
 
 def format_crypto_symbol(symbol: str) -> str:
     """Format cryptocurrency symbol to ensure proper data fetching."""
+    # Common mappings for crypto symbols
+    crypto_mappings = {
+        'BTC': 'BTC-USD',
+        'ETH': 'ETH-USD',
+        'BITCOIN': 'BTC-USD',
+        'ETHEREUM': 'ETH-USD',
+    }
+    
+    # Check if we have a direct mapping
+    symbol = symbol.upper().strip()
+    if symbol in crypto_mappings:
+        return crypto_mappings[symbol]
+    
     # Remove any existing suffixes
-    base_symbol = symbol.upper().strip()
+    base_symbol = symbol
     for suffix in ['-USD', 'USD', 'USDT', 'BTC']:
         if base_symbol.endswith(suffix):
             base_symbol = base_symbol[:-len(suffix)]
+            break
     
     # Add -USD suffix if not present
     if not base_symbol.endswith('-USD'):
