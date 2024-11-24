@@ -4,11 +4,13 @@ from datetime import datetime, timedelta
 import streamlit as st
 import yfinance as yf
 from typing import Dict, List, Tuple
+from utils.stock_data import is_crypto
 from utils.technical_analysis import (
     calculate_gap_and_go_signals,
     calculate_trend_continuation,
     calculate_fibonacci_signals,
-    calculate_weekly_trendline_break
+    calculate_weekly_trendline_break,
+    calculate_mvrv_ratio
 )
 
 def calculate_trend_strength(data: pd.DataFrame) -> float:
@@ -100,8 +102,8 @@ def analyze_volume_profile(data: pd.DataFrame) -> float:
         close_series = pd.Series(data['Close'].values)
         volume_series = pd.Series(data['Volume'].values)
         
-        # Create price bins
-        bins = pd.qcut(close_series, q=10, duplicates='drop')
+        # Create price bins with integer labels
+        bins = pd.qcut(close_series, q=10, duplicates='drop', labels=False)
         volume_profile = volume_series.groupby(bins).mean()
         
         # Get the current price level
@@ -110,12 +112,7 @@ def analyze_volume_profile(data: pd.DataFrame) -> float:
         
         # Calculate volume metrics
         mean_volume = float(volume_profile.mean())
-        
-        # Handle the case where the current bin exists in volume profile
-        try:
-            current_level_volume = float(volume_profile.iloc[current_bin])
-        except (IndexError, KeyError):
-            current_level_volume = mean_volume
+        current_level_volume = float(volume_profile.iloc[current_bin])
             
         volume_ratio = current_level_volume / mean_volume if mean_volume > 0 else 1.0
         return min(float(volume_ratio), 1.0)
@@ -225,15 +222,14 @@ def calculate_target(last_price: float, predicted_range: float,
 
 def predict_price_movement(data: pd.DataFrame, ticker: str) -> dict:
     """Predict price movement for multiple timeframes with enhanced analysis."""
-    if len(data) < 50:
+    if data is None or len(data) < 50:
         return {
-            'short_term': {
-                'timeframe': '1 Week',
-                'direction': 'NEUTRAL',
-                'confidence': 0.0,
-                'predicted_high': None,
-                'predicted_low': None
-            }
+            'short_term': {'timeframe': '1 Week', 'direction': 'NEUTRAL', 'confidence': 0.0,
+                          'predicted_high': None, 'predicted_low': None},
+            'medium_term': {'timeframe': '1 Month', 'direction': 'NEUTRAL', 'confidence': 0.0,
+                           'predicted_high': None, 'predicted_low': None},
+            'long_term': {'timeframe': '3 Months', 'direction': 'NEUTRAL', 'confidence': 0.0,
+                         'predicted_high': None, 'predicted_low': None}
         }
     
     # Calculate base metrics
@@ -249,13 +245,13 @@ def predict_price_movement(data: pd.DataFrame, ticker: str) -> dict:
     
     # Define timeframes and their parameters based on asset type
     timeframes = {
-        'short_term': {'name': '24 Hours', 'window': 24, 'volatility_window': 48, 'weight': 0.4},
-        'medium_term': {'name': '7 Days', 'window': 168, 'volatility_window': 336, 'weight': 0.3},
-        'long_term': {'name': '30 Days', 'window': 720, 'volatility_window': 1440, 'weight': 0.3}
+        'short_term': {'name': '24 Hours', 'window': min(24, len(data)), 'volatility_window': min(48, len(data)), 'weight': 0.4},
+        'medium_term': {'name': '7 Days', 'window': min(168, len(data)), 'volatility_window': min(336, len(data)), 'weight': 0.3},
+        'long_term': {'name': '30 Days', 'window': min(720, len(data)), 'volatility_window': min(1440, len(data)), 'weight': 0.3}
     } if is_crypto(ticker) else {
-        'short_term': {'name': '1 Week', 'window': 5, 'volatility_window': 10, 'weight': 0.4},
-        'medium_term': {'name': '1 Month', 'window': 20, 'volatility_window': 30, 'weight': 0.3},
-        'long_term': {'name': '3 Months', 'window': 60, 'volatility_window': 60, 'weight': 0.3}
+        'short_term': {'name': '1 Week', 'window': min(5, len(data)), 'volatility_window': min(10, len(data)), 'weight': 0.4},
+        'medium_term': {'name': '1 Month', 'window': min(20, len(data)), 'volatility_window': min(30, len(data)), 'weight': 0.3},
+        'long_term': {'name': '3 Months', 'window': min(60, len(data)), 'volatility_window': min(60, len(data)), 'weight': 0.3}
     }
     
     for timeframe, params in timeframes.items():
@@ -304,7 +300,7 @@ def predict_price_movement(data: pd.DataFrame, ticker: str) -> dict:
             )
             
             # Add MVRV ratio adjustment for crypto
-            mvrv_ratio = calculate_mvrv_ratio(df).iloc[-1]
+            mvrv_ratio = calculate_mvrv_ratio(data).iloc[-1]
             if not pd.isna(mvrv_ratio):
                 if mvrv_ratio > 3.0:  # Overvalued
                     combined_score *= 0.8
