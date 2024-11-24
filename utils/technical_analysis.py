@@ -1,34 +1,58 @@
 import pandas as pd
 import numpy as np
-import pandas_ta as ta
 import streamlit as st
 
+def calculate_rsi(data: pd.DataFrame, periods: int = 14) -> pd.Series:
+    """Calculate RSI indicator."""
+    delta = data['Close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=periods).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=periods).mean()
+    rs = gain / loss
+    return 100 - (100 / (1 + rs))
+
+def calculate_macd(data: pd.DataFrame) -> tuple[pd.Series, pd.Series, pd.Series]:
+    """Calculate MACD indicator."""
+    exp1 = data['Close'].ewm(span=12, adjust=False).mean()
+    exp2 = data['Close'].ewm(span=26, adjust=False).mean()
+    macd = exp1 - exp2
+    signal = macd.ewm(span=9, adjust=False).mean()
+    hist = macd - signal
+    return macd, signal, hist
+
+def calculate_bollinger_bands(data: pd.DataFrame, window: int = 20, num_std: float = 2.0) -> tuple[pd.Series, pd.Series, pd.Series]:
+    """Calculate Bollinger Bands."""
+    middle = data['Close'].rolling(window=window).mean()
+    std = data['Close'].rolling(window=window).std()
+    upper = middle + (std * num_std)
+    lower = middle - (std * num_std)
+    return upper, middle, lower
+
 @st.cache_data
-def calculate_indicators(df: pd.DataFrame) -> dict:
+def calculate_indicators(df: pd.DataFrame) -> pd.DataFrame:
     """Calculate technical indicators for the given stock data."""
     if df.empty:
-        return {}
+        return df
     
     try:
         # Calculate Moving Averages
-        df['SMA_20'] = df.ta.sma(length=20)
-        df['SMA_50'] = df.ta.sma(length=50)
-        df['EMA_20'] = df.ta.ema(length=20)
+        df['SMA_20'] = df['Close'].rolling(window=20).mean()
+        df['SMA_50'] = df['Close'].rolling(window=50).mean()
+        df['EMA_20'] = df['Close'].ewm(span=20, adjust=False).mean()
         
         # RSI
-        df['RSI'] = df.ta.rsi(length=14)
+        df['RSI'] = calculate_rsi(df)
         
         # MACD
-        macd = df.ta.macd()
-        df['MACD'] = macd['MACD_12_26_9']
-        df['MACD_Signal'] = macd['MACDs_12_26_9']
-        df['MACD_Hist'] = macd['MACDh_12_26_9']
+        macd, signal, hist = calculate_macd(df)
+        df['MACD'] = macd
+        df['MACD_Signal'] = signal
+        df['MACD_Hist'] = hist
         
         # Bollinger Bands
-        bbands = df.ta.bbands()
-        df['BB_Upper'] = bbands['BBU_20_2.0']
-        df['BB_Middle'] = bbands['BBM_20_2.0']
-        df['BB_Lower'] = bbands['BBL_20_2.0']
+        upper, middle, lower = calculate_bollinger_bands(df)
+        df['BB_Upper'] = upper
+        df['BB_Middle'] = middle
+        df['BB_Lower'] = lower
         
         return df
     except Exception as e:
