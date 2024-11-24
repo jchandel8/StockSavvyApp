@@ -483,7 +483,7 @@ def predict_price_movement(data: pd.DataFrame, ticker: str) -> dict:
     
     # Add ARIMA predictions
     try:
-        arima_results = calculate_simple_prediction(data, is_crypto=is_crypto(ticker))
+        arima_results = calculate_arima_prediction(data, is_crypto=is_crypto(ticker))
         if arima_results:
             for timeframe in predictions:
                 predictions[timeframe].update(arima_results)
@@ -500,7 +500,6 @@ def predict_price_movement(data: pd.DataFrame, ticker: str) -> dict:
         st.error(f"Error adding LSTM predictions: {str(e)}")
 
     return predictions
-        arima_results = calculate_arima_prediction(data, is_crypto=is_crypto(ticker))
         if arima_results:
             for timeframe in predictions:
                 predictions[timeframe].update({
