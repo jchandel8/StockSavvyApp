@@ -77,7 +77,7 @@ if ticker:
         
         # Price Predictions
         st.subheader("Price Predictions")
-        predictions = get_prediction(df)
+        predictions = get_prediction(df, ticker)
         
         timeframe_tabs = st.tabs(['Short-term', 'Medium-term', 'Long-term'])
         
