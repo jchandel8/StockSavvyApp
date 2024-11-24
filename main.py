@@ -33,6 +33,7 @@ def get_direction_indicator(direction: str) -> str:
 # Imports are already defined above
 from utils.news_service import get_news, format_news_sentiment
 from utils.prediction import get_prediction
+from utils.backtest import backtest_prediction_model, create_backtest_chart
 from components.chart import create_stock_chart
 from components.signals import display_signals, display_technical_summary
 
@@ -116,9 +117,30 @@ if ticker:
         display_signals(signals)
         display_technical_summary(df)
         
-        # Price Predictions
-        st.subheader("Price Predictions")
+        # Price Predictions section
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.subheader("Price Predictions")
+        with col2:
+            if st.button("Backtest Prediction Model"):
+                st.session_state.show_backtest = True
+
         predictions = get_prediction(df, ticker)
+        
+        if st.session_state.get('show_backtest', False):
+            st.subheader("Prediction Model Backtest")
+            initial_investment = st.number_input("Initial Investment ($)", min_value=100, value=1000, step=100)
+            
+            # Calculate backtest results
+            backtest_results = backtest_prediction_model(df, initial_investment)
+            
+            # Display results
+            st.metric("Final Portfolio Value", f"${backtest_results['final_value']:.2f}")
+            st.metric("Total Return", f"{backtest_results['total_return']:.2f}%")
+            st.metric("Prediction Accuracy", f"{backtest_results['accuracy']:.2f}%")
+            
+            # Show backtest chart
+            st.plotly_chart(create_backtest_chart(backtest_results['history']), use_container_width=True)
         
         timeframe_tabs = st.tabs(['Daily', 'Short-term', 'Medium-term', 'Long-term'])
         
