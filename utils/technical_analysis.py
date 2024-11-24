@@ -208,25 +208,6 @@ def generate_signals(df: pd.DataFrame) -> dict:
         
         # Moving Average Signals
         logger.info("Checking Moving Average signals")
-def calculate_mvrv_ratio(df: pd.DataFrame) -> pd.Series:
-    """Calculate Market Value to Realized Value (MVRV) ratio for cryptocurrencies."""
-    try:
-        if df is None or df.empty or 'Close' not in df.columns or 'Volume' not in df.columns:
-            return pd.Series(index=df.index if df is not None else None)
-        
-        # Calculate realized value (average cost basis)
-        volume_price = df['Close'] * df['Volume']
-        realized_value = volume_price.rolling(window=30).sum() / df['Volume'].rolling(window=30).sum()
-        
-        # Calculate MVRV ratio
-        market_value = df['Close']
-        mvrv_ratio = market_value / realized_value
-        
-        return mvrv_ratio
-    except Exception as e:
-        logger.error(f"Error calculating MVRV ratio: {str(e)}")
-        return pd.Series(index=df.index if df is not None else None)
-
         if (latest_values['close_current'] > latest_values['sma50_current'] and 
             latest_values['close_prev'] <= latest_values['sma50_prev']):
             signals['buy_signals'].append('Price crossed above 50-day MA')
@@ -268,6 +249,25 @@ def calculate_mvrv_ratio(df: pd.DataFrame) -> pd.Series:
         logger.error(f"Error generating signals: {str(e)}")
         signals['status'] = 'error'
         return signals
+
+def calculate_mvrv_ratio(df: pd.DataFrame) -> pd.Series:
+    """Calculate Market Value to Realized Value (MVRV) ratio for cryptocurrencies."""
+    try:
+        if df is None or df.empty or 'Close' not in df.columns or 'Volume' not in df.columns:
+            return pd.Series(index=df.index if df is not None else None)
+        
+        # Calculate realized value (average cost basis)
+        volume_price = df['Close'] * df['Volume']
+        realized_value = volume_price.rolling(window=30).sum() / df['Volume'].rolling(window=30).sum()
+        
+        # Calculate MVRV ratio
+        market_value = df['Close']
+        mvrv_ratio = market_value / realized_value
+        
+        return mvrv_ratio
+    except Exception as e:
+        logger.error(f"Error calculating MVRV ratio: {str(e)}")
+        return pd.Series(index=df.index if df is not None else None)
 
 def calculate_gap_and_go_signals(df: pd.DataFrame) -> pd.Series:
     """Calculate Gap and Go signals."""

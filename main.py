@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
-from utils.stock_data import get_stock_data, get_stock_info, search_stocks
+from utils.stock_data import get_stock_data, get_stock_info, search_stocks, is_crypto
 from utils.technical_analysis import calculate_indicators, generate_signals
-from utils.fundamental_analysis import get_fundamental_metrics, analyze_fundamentals, format_market_cap
+from utils.fundamental_analysis import get_fundamental_metrics, analyze_fundamentals, format_market_cap, format_number
 
 def get_direction_indicator(direction: str) -> str:
     colors = {
@@ -30,9 +30,7 @@ def get_direction_indicator(direction: str) -> str:
             </style>
         </div>
     '''
-from utils.stock_data import get_stock_data, get_stock_info, search_stocks
-from utils.technical_analysis import calculate_indicators, generate_signals
-from utils.fundamental_analysis import get_fundamental_metrics, analyze_fundamentals
+# Imports are already defined above
 from utils.news_service import get_news, format_news_sentiment
 from utils.prediction import get_prediction
 from components.chart import create_stock_chart

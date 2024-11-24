@@ -22,11 +22,8 @@ def calculate_trend_strength(data: pd.DataFrame) -> float:
         momentum_series = returns.rolling(window=20).mean()
         
         # Safe handling of NaN values
-        valid_momentum = momentum_series[pd.notna(momentum_series)]
-        if len(valid_momentum) > 0:
-            momentum = float(valid_momentum.iloc[-1])
-        else:
-            momentum = 0.0
+        valid_momentum = pd.Series(momentum_series[pd.notna(momentum_series)])
+        momentum = float(valid_momentum.iloc[-1]) if len(valid_momentum) > 0 else 0.0
         
         # Calculate trend consistency
         direction_changes = (returns.shift(-1) * returns < 0).sum()
@@ -81,8 +78,8 @@ def analyze_market_cycle(data: pd.DataFrame) -> float:
         valid_momentum = momentum[pd.notna(momentum)]
         valid_volatility = volatility[pd.notna(volatility)]
         
-        latest_momentum = float(valid_momentum.iloc[-1]) if len(valid_momentum) > 0 else 0.0
-        latest_volatility = float(valid_volatility.iloc[-1]) if len(valid_volatility) > 0 else 0.0
+        latest_momentum = float(pd.Series(valid_momentum).iloc[-1]) if len(valid_momentum) > 0 else 0.0
+        latest_volatility = float(pd.Series(valid_volatility).iloc[-1]) if len(valid_volatility) > 0 else 0.0
         volatility_mean = float(valid_volatility.mean()) if len(valid_volatility) > 0 else 0.0
         
         if latest_momentum > 0 and latest_volatility < volatility_mean:
