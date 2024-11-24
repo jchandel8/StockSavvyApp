@@ -92,7 +92,7 @@ def calculate_simple_prediction(data: pd.DataFrame, is_crypto: bool = False) -> 
         
         # Fit ARIMA model
         model = ARIMA(prices, order=(5,1,0))
-        model_fit = model.fit(method='css-mle')
+        model_fit = model.fit(method='css')
         
         # Make prediction
         forecast = model_fit.forecast(steps=1)[0]
