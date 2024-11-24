@@ -65,13 +65,49 @@ def get_stock_data(ticker: str, period: str = "1y") -> pd.DataFrame:
         return pd.DataFrame()
 
 @st.cache_data(ttl=86400)
+def get_coinmarketcap_data(symbol: str) -> dict:
+    """Fetch cryptocurrency data from CoinMarketCap API."""
+    headers = {
+        'X-CMC_PRO_API_KEY': st.secrets["COINMARKETCAP_API_KEY"],
+    }
+    base_url = "https://pro-api.coinmarketcap.com/v1"
+    
+    try:
+        # Get cryptocurrency data
+        response = requests.get(
+            f"{base_url}/cryptocurrency/quotes/latest",
+            headers=headers,
+            params={'symbol': symbol.split('-')[0]}  # Remove -USD suffix
+        )
+        data = response.json()
+        if 'data' in data and symbol.split('-')[0] in data['data']:
+            crypto_data = data['data'][symbol.split('-')[0]]
+            return {
+                'name': crypto_data['name'],
+                'type': 'crypto',
+                'market_cap': crypto_data['quote']['USD']['market_cap'],
+                'volume_24h': crypto_data['quote']['USD']['volume_24h'],
+                'circulating_supply': crypto_data['circulating_supply'],
+                'total_supply': crypto_data['total_supply'],
+                'max_supply': crypto_data['max_supply'],
+                'price_change_24h': crypto_data['quote']['USD']['percent_change_24h']
+            }
+        return None
+    except Exception as e:
+        st.error(f"Error fetching crypto data: {str(e)}")
+        return None
+
 def get_stock_info(ticker: str) -> dict:
     """Get stock/crypto information and fundamentals."""
     try:
-        stock = yf.Ticker(ticker)
-        info = stock.info
-        
         if is_crypto(ticker):
+            crypto_data = get_coinmarketcap_data(ticker)
+            if crypto_data:
+                return crypto_data
+            
+            # Fallback to Yahoo Finance if CoinMarketCap fails
+            stock = yf.Ticker(ticker)
+            info = stock.info
             return {
                 'name': info.get('longName', ''),
                 'type': 'crypto',
@@ -107,7 +143,30 @@ def search_stocks(query: str) -> list:
             
         results = []
         
-        # Search using yfinance
+        # Add CoinMarketCap search for cryptocurrencies
+        if query.upper() in ['BTC', 'ETH', 'USDT'] or any(query.upper().endswith(suffix) for suffix in ['-USD', 'USD', 'USDT']):
+            try:
+                response = requests.get(
+                    "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest",
+                    headers={'X-CMC_PRO_API_KEY': st.secrets["COINMARKETCAP_API_KEY"]},
+                    params={'start': 1, 'limit': 10, 'convert': 'USD'}
+                )
+                crypto_data = response.json()
+                for crypto in crypto_data['data']:
+                    symbol = f"{crypto['symbol']}-USD"
+                    if crypto['symbol'].upper().startswith(query.upper()):
+                        results.append({
+                            'symbol': symbol,
+                            'name': crypto['name'],
+                            'exchange': 'Crypto',
+                            'type': 'crypto',
+                            'market_cap': crypto['quote']['USD']['market_cap'],
+                            'volume_24h': crypto['quote']['USD']['volume_24h']
+                        })
+            except Exception as e:
+                st.error(f"Error searching cryptocurrencies: {str(e)}")
+        
+        # Search using yfinance as fallback
         tickers = yf.Tickers(query)
         for ticker in tickers.tickers:
             try:
