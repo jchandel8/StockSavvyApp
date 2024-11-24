@@ -161,12 +161,18 @@ def calculate_dynamic_range(last_price: float, volatility: float,
         
     return base_range
 
-def determine_direction(score: float) -> str:
-    """Determine price direction based on combined score."""
-    if score > 0.55:  # Lower threshold for upward movement
-        return 'UP'
-    elif score < 0.45:  # Higher threshold for downward movement
-        return 'DOWN'
+def determine_direction(score: float, is_crypto: bool = False) -> str:
+    """Determine price direction based on combined score with crypto-specific thresholds."""
+    if is_crypto:
+        if score > 0.60:  # Higher threshold for crypto
+            return 'UP'
+        elif score < 0.40:  # Lower threshold for crypto
+            return 'DOWN'
+    else:
+        if score > 0.55:
+            return 'UP'
+        elif score < 0.45:
+            return 'DOWN'
     return 'NEUTRAL'
 
 def calculate_confidence(score: float, volatility: float) -> float:
@@ -241,8 +247,12 @@ def predict_price_movement(data: pd.DataFrame, ticker: str) -> dict:
     volume_profile_score = analyze_volume_profile(data)
     support_resistance = calculate_support_resistance(data)
     
-    # Define timeframes and their parameters
+    # Define timeframes and their parameters based on asset type
     timeframes = {
+        'short_term': {'name': '24 Hours', 'window': 24, 'volatility_window': 48, 'weight': 0.4},
+        'medium_term': {'name': '7 Days', 'window': 168, 'volatility_window': 336, 'weight': 0.3},
+        'long_term': {'name': '30 Days', 'window': 720, 'volatility_window': 1440, 'weight': 0.3}
+    } if is_crypto(ticker) else {
         'short_term': {'name': '1 Week', 'window': 5, 'volatility_window': 10, 'weight': 0.4},
         'medium_term': {'name': '1 Month', 'window': 20, 'volatility_window': 30, 'weight': 0.3},
         'long_term': {'name': '3 Months', 'window': 60, 'volatility_window': 60, 'weight': 0.3}
@@ -283,15 +293,32 @@ def predict_price_movement(data: pd.DataFrame, ticker: str) -> dict:
         # Calculate economic factors
         economic_score = analyze_economic_factors(ticker)
         
-        # Combine all factors with updated weights
-        combined_score = (
-            trend_strength * 0.20 +                # Technical trend
-            technical_score * 0.20 +               # Price momentum
-            fundamental_score * 0.20 +             # Company health
-            market_cycle_score * 0.15 +            # Market conditions
-            volume_profile_score * 0.10 +          # Volume analysis
-            signal_agreement * 0.15                # Technical signals
-        )
+        # Combine all factors with updated weights based on asset type
+        if is_crypto(ticker):
+            combined_score = (
+                trend_strength * 0.25 +                # Technical trend (increased weight)
+                technical_score * 0.25 +               # Price momentum (increased weight)
+                market_cycle_score * 0.20 +            # Market conditions
+                volume_profile_score * 0.15 +          # Volume analysis
+                signal_agreement * 0.15                # Technical signals
+            )
+            
+            # Add MVRV ratio adjustment for crypto
+            mvrv_ratio = calculate_mvrv_ratio(df).iloc[-1]
+            if not pd.isna(mvrv_ratio):
+                if mvrv_ratio > 3.0:  # Overvalued
+                    combined_score *= 0.8
+                elif mvrv_ratio < 1.0:  # Undervalued
+                    combined_score *= 1.2
+        else:
+            combined_score = (
+                trend_strength * 0.20 +                # Technical trend
+                technical_score * 0.20 +               # Price momentum
+                fundamental_score * 0.20 +             # Company health
+                market_cycle_score * 0.15 +            # Market conditions
+                volume_profile_score * 0.10 +          # Volume analysis
+                signal_agreement * 0.15                # Technical signals
+            )
         
         # Add economic factor adjustment
         if fundamental_score > 0.7:  # Strong company fundamentals
