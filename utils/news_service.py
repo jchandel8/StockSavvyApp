@@ -7,7 +7,11 @@ from datetime import datetime, timedelta
 def get_news(ticker: str, days: int = 7) -> list:
     """Fetch news articles for a given stock ticker."""
     # Using Alpha Vantage News API (free tier)
-    api_key = st.secrets["ALPHA_VANTAGE_API_KEY"]
+    try:
+        api_key = st.secrets.get("ALPHA_VANTAGE_API_KEY", "demo")
+    except Exception as e:
+        st.warning("News service temporarily unavailable")
+        return []
     base_url = "https://www.alphavantage.co/query"
     
     try:
