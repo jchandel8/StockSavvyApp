@@ -12,6 +12,49 @@ from utils.technical_analysis import (
     calculate_mvrv_ratio
 )
 
+def calculate_rsi(prices: pd.Series, period: int = 14) -> pd.Series:
+    # Calculate price changes
+    delta = prices.diff()
+    
+    # Get gains and losses
+    gains = delta.copy()
+    losses = delta.copy()
+    gains[gains < 0] = 0
+    losses[losses > 0] = 0
+    losses = abs(losses)
+    
+    # Calculate average gains and losses
+    avg_gains = gains.rolling(window=period).mean()
+    avg_losses = losses.rolling(window=period).mean()
+    
+    # Calculate RS and RSI
+    rs = avg_gains / avg_losses
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
+
+def calculate_macd(prices: pd.Series) -> tuple:
+    # Calculate EMAs
+    exp1 = prices.ewm(span=12, adjust=False).mean()
+    exp2 = prices.ewm(span=26, adjust=False).mean()
+    
+    # Calculate MACD and Signal Line
+    macd = exp1 - exp2
+    signal = macd.ewm(span=9, adjust=False).mean()
+    return macd, signal
+
+def calculate_bollinger_bands(prices: pd.Series, period: int = 20) -> tuple:
+    # Calculate middle band (SMA)
+    middle_band = prices.rolling(window=period).mean()
+    
+    # Calculate standard deviation
+    std = prices.rolling(window=period).std()
+    
+    # Calculate upper and lower bands
+    upper_band = middle_band + (std * 2)
+    lower_band = middle_band - (std * 2)
+    
+    return upper_band, lower_band
+
 def calculate_atr(data, period=14):
     """Calculate Average True Range."""
     high = data['High']
