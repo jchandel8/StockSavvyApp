@@ -91,8 +91,12 @@ def calculate_simple_prediction(data: pd.DataFrame, is_crypto: bool = False) -> 
         prices = data['Close'].values
         
         # Fit ARIMA model
-        model = ARIMA(prices, order=(5,1,0))
-        model_fit = model.fit(method='css')
+        try:
+            model = ARIMA(prices, order=(5,1,0))
+            model_fit = model.fit(method='css')
+        except Exception as e:
+            st.error(f"Error fitting ARIMA model: {str(e)}")
+            return {}
         
         # Make prediction
         forecast = model_fit.forecast(steps=1)[0]
@@ -479,9 +483,26 @@ def predict_price_movement(data: pd.DataFrame, ticker: str) -> dict:
     
     # Add ARIMA predictions
     try:
-        arima_results = calculate_arima_prediction(data)
+        arima_results = calculate_arima_prediction(data, is_crypto=is_crypto(ticker))
         if arima_results:
             for timeframe in predictions:
+                predictions[timeframe].update({
+                    'arima_forecast': arima_results['arima_forecast'],
+                    'arima_lower': arima_results['arima_forecast'] * 0.95,
+                    'arima_upper': arima_results['arima_forecast'] * 1.05,
+                    'model_order': arima_results['model_order']
+                })
+    except Exception as e:
+        st.error(f"Error adding ARIMA predictions: {str(e)}")
+        
+    return predictions
+        try:
+            arima_results = calculate_arima_prediction(data)
+            if arima_results:
+                for timeframe in predictions:
+        except Exception as e:
+            st.error(f"Error in ARIMA prediction: {str(e)}")
+            arima_results = {}
                 tf_params = timeframes[timeframe]
                 forecast_idx = min(tf_params['window'], len(arima_results['forecast'])-1)
                 
