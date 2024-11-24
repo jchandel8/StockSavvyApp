@@ -140,6 +140,12 @@ if ticker:
                 with pred_cols[3]:
                     if pred['predicted_low']:
                         st.metric("Predicted Low", f"${pred['predicted_low']:.2f}")
+                
+                if 'arima_forecast' in pred:
+                    with st.expander("ARIMA Statistical Analysis"):
+                        st.metric("ARIMA Forecast", f"${pred['arima_forecast']:.2f}")
+                        st.metric("Lower Bound", f"${pred['arima_lower']:.2f}")
+                        st.metric("Upper Bound", f"${pred['arima_upper']:.2f}")
         
         # Fundamental Analysis
         st.subheader("Fundamental Analysis")

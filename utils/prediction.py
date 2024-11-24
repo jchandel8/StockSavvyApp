@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 import streamlit as st
 import yfinance as yf
 from typing import Dict, List, Tuple
+from statsmodels.tsa.arima.model import ARIMA
+from statsmodels.tsa.stattools import adfuller
 from utils.stock_data import is_crypto
 from utils.technical_analysis import (
     calculate_gap_and_go_signals,
@@ -12,6 +14,33 @@ from utils.technical_analysis import (
     calculate_weekly_trendline_break,
     calculate_mvrv_ratio
 )
+
+def calculate_arima_prediction(data: pd.DataFrame, steps: int = 30) -> dict:
+    try:
+        # Prepare data
+        prices = data['Close'].values
+        
+        # Perform Augmented Dickey-Fuller test for stationarity
+        adf_result = adfuller(prices)
+        d = 1 if adf_result[1] > 0.05 else 0  # Determine differencing order
+        
+        # Fit ARIMA model
+        model = ARIMA(prices, order=(5,d,2))  # p=5, d=dynamic, q=2
+        model_fit = model.fit()
+        
+        # Make predictions
+        forecast = model_fit.forecast(steps=steps)
+        confidence_intervals = model_fit.get_forecast(steps=steps).conf_int()
+        
+        return {
+            'forecast': forecast,
+            'lower_bound': confidence_intervals[:,0],
+            'upper_bound': confidence_intervals[:,1],
+            'model_aic': model_fit.aic  # Model quality metric
+        }
+    except Exception as e:
+        st.error(f"Error in ARIMA prediction: {str(e)}")
+        return None
 
 def calculate_trend_strength(data: pd.DataFrame) -> float:
     """Calculate the strength of the current trend."""
@@ -377,6 +406,26 @@ def predict_price_movement(data: pd.DataFrame, ticker: str) -> dict:
             'predicted_high': calculate_target(last_price, predicted_range, 'high', support_resistance),
             'predicted_low': calculate_target(last_price, predicted_range, 'low', support_resistance)
         }
+    
+    # Add ARIMA predictions
+    try:
+        arima_results = calculate_arima_prediction(data)
+        if arima_results:
+            for timeframe in predictions:
+                tf_params = timeframes[timeframe]
+                forecast_idx = min(tf_params['window'], len(arima_results['forecast'])-1)
+                
+                # Adjust predictions using ARIMA forecast
+                arima_direction = 'UP' if arima_results['forecast'][forecast_idx] > last_price else 'DOWN'
+                if arima_direction == predictions[timeframe]['direction']:
+                    predictions[timeframe]['confidence'] *= 1.2  # Boost confidence if ARIMA agrees
+                
+                # Update predicted high/low with ARIMA bounds
+                predictions[timeframe]['arima_forecast'] = float(arima_results['forecast'][forecast_idx])
+                predictions[timeframe]['arima_lower'] = float(arima_results['lower_bound'][forecast_idx])
+                predictions[timeframe]['arima_upper'] = float(arima_results['upper_bound'][forecast_idx])
+    except Exception as e:
+        st.error(f"Error incorporating ARIMA predictions: {str(e)}")
     
     return predictions
 
