@@ -8,7 +8,7 @@ def calculate_rsi(data: pd.DataFrame, periods: int = 14) -> pd.Series:
     gain = (delta.where(delta > 0, 0)).rolling(window=periods).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=periods).mean()
     rs = gain / loss
-    return 100 - (100 / (1 + rs))
+    return pd.Series(100 - (100 / (1 + rs)), index=data.index)
 
 def calculate_macd(data: pd.DataFrame) -> tuple[pd.Series, pd.Series, pd.Series]:
     """Calculate MACD indicator."""
@@ -21,10 +21,10 @@ def calculate_macd(data: pd.DataFrame) -> tuple[pd.Series, pd.Series, pd.Series]
 
 def calculate_bollinger_bands(data: pd.DataFrame, window: int = 20, num_std: float = 2.0) -> tuple[pd.Series, pd.Series, pd.Series]:
     """Calculate Bollinger Bands."""
-    middle = data['Close'].rolling(window=window).mean()
+    middle = pd.Series(data['Close'].rolling(window=window).mean(), index=data.index)
     std = data['Close'].rolling(window=window).std()
-    upper = middle + (std * num_std)
-    lower = middle - (std * num_std)
+    upper = pd.Series(middle + (std * num_std), index=data.index)
+    lower = pd.Series(middle - (std * num_std), index=data.index)
     return upper, middle, lower
 
 @st.cache_data

@@ -37,8 +37,39 @@ def get_stock_info(ticker: str) -> dict:
 def search_stocks(query: str) -> list:
     """Search for stocks matching the query."""
     try:
-        matches = yf.Tickers(query).tickers
-        return [{'symbol': t, 'name': matches[t].info.get('longName', '')} 
-                for t in matches][:10]
-    except:
+        if not query or len(query) < 2:
+            return []
+            
+        # Common stock exchanges to search
+        exchanges = ['NASDAQ', 'NYSE']
+        results = []
+        
+        for exchange in exchanges:
+            try:
+                # Search for stocks in each exchange
+                stock = yf.Ticker(f"{query}.{exchange}")
+                if 'longName' in stock.info:
+                    results.append({
+                        'symbol': f"{query}",
+                        'name': stock.info['longName'],
+                        'exchange': exchange
+                    })
+            except:
+                continue
+                
+        # Also try searching without exchange
+        try:
+            stock = yf.Ticker(query)
+            if 'longName' in stock.info:
+                results.append({
+                    'symbol': query,
+                    'name': stock.info['longName'],
+                    'exchange': stock.info.get('exchange', 'Unknown')
+                })
+        except:
+            pass
+            
+        return results[:10]  # Limit to 10 suggestions
+    except Exception as e:
+        st.error(f"Error searching stocks: {str(e)}")
         return []

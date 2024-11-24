@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 def get_news(ticker: str, days: int = 7) -> list:
     """Fetch news articles for a given stock ticker."""
     # Using Alpha Vantage News API (free tier)
-    api_key = "demo"  # Replace with actual API key in production
+    api_key = st.secrets.get("ALPHA_VANTAGE_API_KEY", "demo")
     base_url = "https://www.alphavantage.co/query"
     
     try:
@@ -24,13 +24,17 @@ def get_news(ticker: str, days: int = 7) -> list:
         
         articles = []
         for article in data["feed"][:10]:  # Limit to 10 articles
+            # Extract image URL from the article
+            image_url = article.get('banner_image', '') or article.get('image', '')
+            
             articles.append({
                 'title': article.get('title', ''),
                 'summary': article.get('summary', ''),
                 'url': article.get('url', ''),
                 'source': article.get('source', ''),
                 'time_published': article.get('time_published', ''),
-                'sentiment': article.get('overall_sentiment_score', 0)
+                'sentiment': article.get('overall_sentiment_score', 0),
+                'image_url': image_url
             })
         
         return articles
