@@ -20,10 +20,10 @@ def calculate_trend_strength(data: pd.DataFrame) -> float:
         # Calculate price momentum
         returns = data['Close'].pct_change()
         momentum_series = returns.rolling(window=20).mean()
-        momentum = float(momentum_series.iloc[-1]) if len(momentum_series) > 0 else 0.0
+        momentum = float(momentum_series.tail(1).iloc[0]) if not momentum_series.empty else 0.0
         
         # Calculate trend consistency
-        direction_changes = (returns[1:] * returns[:-1].values < 0).sum()
+        direction_changes = (returns.shift(-1) * returns < 0).sum()
         consistency = 1 - (direction_changes / len(returns))
         
         # Combine factors
@@ -70,8 +70,8 @@ def analyze_market_cycle(data: pd.DataFrame) -> float:
         volatility = returns.rolling(window=20).std()
         
         # Determine cycle phase
-        latest_momentum = momentum.iloc[-1]
-        latest_volatility = volatility.iloc[-1]
+        latest_momentum = float(momentum.tail(1).iloc[0]) if not momentum.empty else 0.0
+        latest_volatility = float(volatility.tail(1).iloc[0]) if not volatility.empty else 0.0
         
         if latest_momentum > 0 and latest_volatility < volatility.mean():
             return 0.8  # Upward trend with low volatility
@@ -143,17 +143,46 @@ def calculate_dynamic_range(last_price: float, volatility: float,
 
 def determine_direction(score: float) -> str:
     """Determine price direction based on combined score."""
-    if score > 0.6:
+    if score > 0.55:  # Lower threshold for upward movement
         return 'UP'
-    elif score < 0.4:
+    elif score < 0.45:  # Higher threshold for downward movement
         return 'DOWN'
     return 'NEUTRAL'
 
 def calculate_confidence(score: float, volatility: float) -> float:
     """Calculate prediction confidence."""
-    base_confidence = abs(score - 0.5) * 2  # Convert to 0-1 scale
-    volatility_factor = max(1 - volatility * 2, 0)  # Lower confidence with high volatility
-    return min(base_confidence * volatility_factor, 1.0)
+    base_confidence = abs(score - 0.5) * 2.5  # Increased sensitivity
+    volatility_factor = max(1 - volatility * 1.5, 0)  # Less penalty for volatility
+    confidence = min(base_confidence * volatility_factor, 1.0)
+    return max(confidence, 0.1)  # Minimum confidence of 10%
+
+def analyze_economic_factors(ticker: str) -> float:
+    """Analyze economic factors for a given stock."""
+    try:
+        stock = yf.Ticker(ticker)
+        info = stock.info
+        
+        score = 0.5  # Start neutral
+        
+        # Sector performance
+        if 'sector' in info:
+            sector_perf = stock.info.get('sector_performance', 0)
+            score += sector_perf * 0.2
+        
+        # Market cap stability
+        if 'marketCap' in info and 'enterpriseValue' in info:
+            market_ratio = info['marketCap'] / info['enterpriseValue']
+            if 0.8 <= market_ratio <= 1.2:
+                score += 0.1
+        
+        # Institutional ownership
+        if 'institutionalOwnership' in info:
+            inst_own = info['institutionalOwnership']
+            score += min(inst_own * 0.3, 0.2)
+        
+        return min(max(score, 0), 1)  # Normalize to 0-1
+    except:
+        return 0.5
 
 def calculate_target(last_price: float, predicted_range: float, 
                     target_type: str, support_resistance: Dict[str, float]) -> float:
@@ -219,15 +248,24 @@ def predict_price_movement(data: pd.DataFrame, ticker: str) -> dict:
             weekly_trendline
         ]) / 4.0  # Normalize to 0-1
         
+        # Calculate economic factors
+        economic_score = analyze_economic_factors(ticker)
+        
         # Combine all factors with updated weights
         combined_score = (
-            trend_strength * 0.25 +
-            technical_score * 0.25 +
-            fundamental_score * 0.15 +
-            market_cycle_score * 0.10 +
-            volume_profile_score * 0.10 +
-            signal_agreement * 0.15
+            trend_strength * 0.20 +                # Technical trend
+            technical_score * 0.20 +               # Price momentum
+            fundamental_score * 0.20 +             # Company health
+            market_cycle_score * 0.15 +            # Market conditions
+            volume_profile_score * 0.10 +          # Volume analysis
+            signal_agreement * 0.15                # Technical signals
         )
+        
+        # Add economic factor adjustment
+        if fundamental_score > 0.7:  # Strong company fundamentals
+            combined_score *= 1.1    # Boost prediction confidence
+        elif fundamental_score < 0.3:  # Weak fundamentals
+            combined_score *= 0.9    # Reduce prediction confidence
         
         # Adjust predicted range based on support/resistance
         predicted_range = calculate_dynamic_range(
