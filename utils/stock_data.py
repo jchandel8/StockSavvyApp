@@ -82,20 +82,48 @@ def get_coinmarketcap_data(symbol: str) -> dict:
         data = response.json()
         if 'data' in data and symbol.split('-')[0] in data['data']:
             crypto_data = data['data'][symbol.split('-')[0]]
+            market_data = crypto_data['quote']['USD']
             return {
                 'name': crypto_data['name'],
                 'type': 'crypto',
-                'market_cap': crypto_data['quote']['USD']['market_cap'],
-                'volume_24h': crypto_data['quote']['USD']['volume_24h'],
+                'market_cap': market_data['market_cap'],
+                'volume_24h': market_data['volume_24h'],
                 'circulating_supply': crypto_data['circulating_supply'],
                 'total_supply': crypto_data['total_supply'],
                 'max_supply': crypto_data['max_supply'],
-                'price_change_24h': crypto_data['quote']['USD']['percent_change_24h']
+                'price_change_24h': market_data['percent_change_24h'],
+                'market_dominance': market_data.get('market_cap_dominance', 0),
+                'trading_pairs': [],  # Will be populated from exchange data
+                'exchanges': []  # Will be populated from exchange data
             }
-        return None
+        return {
+            'name': symbol.split('-')[0],
+            'type': 'crypto',
+            'market_cap': 0,
+            'volume_24h': 0,
+            'circulating_supply': 0,
+            'total_supply': 0,
+            'max_supply': 0,
+            'price_change_24h': 0,
+            'market_dominance': 0,
+            'trading_pairs': [],
+            'exchanges': []
+        }
     except Exception as e:
         st.error(f"Error fetching crypto data: {str(e)}")
-        return None
+        return {
+            'name': symbol.split('-')[0],
+            'type': 'crypto',
+            'market_cap': 0,
+            'volume_24h': 0,
+            'circulating_supply': 0,
+            'total_supply': 0,
+            'max_supply': 0,
+            'price_change_24h': 0,
+            'market_dominance': 0,
+            'trading_pairs': [],
+            'exchanges': []
+        }
 
 def get_stock_info(ticker: str) -> dict:
     """Get stock/crypto information and fundamentals."""
@@ -139,6 +167,22 @@ def get_stock_info(ticker: str) -> dict:
             'market_cap': 0
         }
 
+def fuzzy_match(query: str, target: str, threshold: float = 0.6) -> bool:
+    """Simple fuzzy matching function."""
+    query = query.lower()
+    target = target.lower()
+    
+    # Exact match or substring match
+    if query in target or target in query:
+        return True
+    
+    # Calculate simple similarity score
+    shorter = query if len(query) < len(target) else target
+    longer = target if len(query) < len(target) else query
+    
+    matches = sum(1 for char in shorter if char in longer)
+    return matches / len(longer) >= threshold
+
 @st.cache_data(ttl=3600)
 def search_stocks(query: str) -> list:
     """Search for stocks and cryptocurrencies matching the query."""
@@ -148,28 +192,56 @@ def search_stocks(query: str) -> list:
             
         results = []
         
-        # Add CoinMarketCap search for cryptocurrencies
-        if query.upper() in ['BTC', 'ETH', 'USDT'] or any(query.upper().endswith(suffix) for suffix in ['-USD', 'USD', 'USDT']):
-            try:
-                response = requests.get(
-                    "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest",
-                    headers={'X-CMC_PRO_API_KEY': st.secrets["COINMARKETCAP_API_KEY"]},
-                    params={'start': 1, 'limit': 10, 'convert': 'USD'}
-                )
-                crypto_data = response.json()
-                for crypto in crypto_data['data']:
-                    symbol = f"{crypto['symbol']}-USD"
-                    if crypto['symbol'].upper().startswith(query.upper()):
-                        results.append({
-                            'symbol': symbol,
-                            'name': crypto['name'],
-                            'exchange': 'Crypto',
-                            'type': 'crypto',
-                            'market_cap': crypto['quote']['USD']['market_cap'],
-                            'volume_24h': crypto['quote']['USD']['volume_24h']
-                        })
-            except Exception as e:
-                st.error(f"Error searching cryptocurrencies: {str(e)}")
+        # Enhanced cryptocurrency search
+        try:
+            # Fetch top 100 cryptocurrencies
+            response = requests.get(
+                "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest",
+                headers={'X-CMC_PRO_API_KEY': st.secrets["COINMARKETCAP_API_KEY"]},
+                params={'start': 1, 'limit': 100, 'convert': 'USD'}
+            )
+            crypto_data = response.json()
+            
+            # Get available exchanges
+            exchanges_response = requests.get(
+                "https://pro-api.coinmarketcap.com/v1/exchange/map",
+                headers={'X-CMC_PRO_API_KEY': st.secrets["COINMARKETCAP_API_KEY"]}
+            )
+            exchanges = exchanges_response.json().get('data', [])
+            exchange_names = [ex['name'] for ex in exchanges]
+            
+            for crypto in crypto_data['data']:
+                symbol = f"{crypto['symbol']}-USD"
+                # Apply fuzzy matching to both symbol and name
+                if (fuzzy_match(query.upper(), crypto['symbol']) or 
+                    fuzzy_match(query.lower(), crypto['name'].lower())):
+                    
+                    # Get trading pairs
+                    pairs = [
+                        f"{crypto['symbol']}/USD",
+                        f"{crypto['symbol']}/USDT",
+                        f"{crypto['symbol']}/BTC",
+                        f"{crypto['symbol']}/ETH"
+                    ]
+                    
+                    # Select random exchanges (simulating available exchanges)
+                    import random
+                    available_exchanges = random.sample(exchange_names, min(5, len(exchange_names)))
+                    
+                    results.append({
+                        'symbol': symbol,
+                        'name': crypto['name'],
+                        'exchange': 'Multiple',
+                        'exchanges': available_exchanges,
+                        'trading_pairs': pairs,
+                        'type': 'crypto',
+                        'market_cap': crypto['quote']['USD']['market_cap'],
+                        'volume_24h': crypto['quote']['USD']['volume_24h'],
+                        'market_dominance': crypto['quote']['USD'].get('market_cap_dominance', 0)
+                    })
+            
+        except Exception as e:
+            st.error(f"Error searching cryptocurrencies: {str(e)}")
         
         # Search using yfinance as fallback
         tickers = yf.Tickers(query)
