@@ -96,24 +96,33 @@ def analyze_market_cycle(data: pd.DataFrame) -> float:
         return 0.5
 
 def analyze_volume_profile(data: pd.DataFrame) -> float:
-    """Analyze volume profile for price levels."""
     try:
-        # Calculate volume-weighted price levels
-        close_series = pd.Series(data['Close'].values)
-        volume_series = pd.Series(data['Volume'].values)
-        
-        # Create price bins with integer labels
-        bins = pd.qcut(close_series, q=10, duplicates='drop', labels=False)
-        volume_profile = volume_series.groupby(bins).mean()
-        
-        # Get the current price level
-        current_price = float(close_series.iloc[-1])
-        current_bin = pd.qcut([current_price], q=10, duplicates='drop', labels=False)[0]
-        
-        # Calculate volume metrics
-        mean_volume = float(volume_profile.mean())
-        current_level_volume = float(volume_profile.iloc[current_bin])
+        if len(data) < 10:
+            return 0.5
             
+        # Calculate volume-weighted price levels
+        close_prices = data['Close'].values
+        volumes = data['Volume'].values
+        
+        # Create price bins (10 equal-sized bins)
+        price_range = np.linspace(close_prices.min(), close_prices.max(), 11)
+        current_price = close_prices[-1]
+        
+        # Find which bin contains the current price
+        current_bin = np.digitize(current_price, price_range) - 1
+        
+        # Calculate volume profile
+        volume_profile = np.zeros(10)
+        for i in range(len(close_prices)):
+            bin_idx = np.digitize(close_prices[i], price_range) - 1
+            if 0 <= bin_idx < 10:  # Ensure valid bin index
+                volume_profile[bin_idx] += volumes[i]
+                
+        # Get volume for current price level
+        current_level_volume = volume_profile[current_bin] if 0 <= current_bin < 10 else np.mean(volume_profile)
+        mean_volume = np.mean(volume_profile[volume_profile > 0])  # Consider only bins with volume
+        
+        # Calculate ratio
         volume_ratio = current_level_volume / mean_volume if mean_volume > 0 else 1.0
         return min(float(volume_ratio), 1.0)
     except Exception as e:
@@ -245,13 +254,43 @@ def predict_price_movement(data: pd.DataFrame, ticker: str) -> dict:
     
     # Define timeframes and their parameters based on asset type
     timeframes = {
-        'short_term': {'name': '24 Hours', 'window': min(24, len(data)), 'volatility_window': min(48, len(data)), 'weight': 0.4},
-        'medium_term': {'name': '7 Days', 'window': min(168, len(data)), 'volatility_window': min(336, len(data)), 'weight': 0.3},
-        'long_term': {'name': '30 Days', 'window': min(720, len(data)), 'volatility_window': min(1440, len(data)), 'weight': 0.3}
+        'short_term': {
+            'name': '24 Hours',
+            'window': min(24, len(data)),
+            'volatility_window': min(48, len(data)),
+            'weight': 0.4
+        },
+        'medium_term': {
+            'name': '7 Days',
+            'window': min(168, len(data)),
+            'volatility_window': min(336, len(data)),
+            'weight': 0.3
+        },
+        'long_term': {
+            'name': '30 Days',
+            'window': min(720, len(data)),
+            'volatility_window': min(1440, len(data)),
+            'weight': 0.3
+        }
     } if is_crypto(ticker) else {
-        'short_term': {'name': '1 Week', 'window': min(5, len(data)), 'volatility_window': min(10, len(data)), 'weight': 0.4},
-        'medium_term': {'name': '1 Month', 'window': min(20, len(data)), 'volatility_window': min(30, len(data)), 'weight': 0.3},
-        'long_term': {'name': '3 Months', 'window': min(60, len(data)), 'volatility_window': min(60, len(data)), 'weight': 0.3}
+        'short_term': {
+            'name': '1 Week',
+            'window': min(5, len(data)),
+            'volatility_window': min(10, len(data)),
+            'weight': 0.4
+        },
+        'medium_term': {
+            'name': '1 Month',
+            'window': min(20, len(data)),
+            'volatility_window': min(30, len(data)),
+            'weight': 0.3
+        },
+        'long_term': {
+            'name': '3 Months',
+            'window': min(60, len(data)),
+            'volatility_window': min(60, len(data)),
+            'weight': 0.3
+        }
     }
     
     for timeframe, params in timeframes.items():
