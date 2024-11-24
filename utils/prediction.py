@@ -17,10 +17,16 @@ def calculate_trend_strength(data: pd.DataFrame) -> float:
         return 0.0
         
     try:
-        # Calculate price momentum
-        returns = data['Close'].pct_change()
+        # Calculate price momentum using pandas operations
+        returns = pd.Series(data['Close']).pct_change()
         momentum_series = returns.rolling(window=20).mean()
-        momentum = float(momentum_series.tail(1).iloc[0]) if not momentum_series.empty else 0.0
+        
+        # Safe handling of NaN values
+        valid_momentum = momentum_series[pd.notna(momentum_series)]
+        if len(valid_momentum) > 0:
+            momentum = float(valid_momentum.iloc[-1])
+        else:
+            momentum = 0.0
         
         # Calculate trend consistency
         direction_changes = (returns.shift(-1) * returns < 0).sum()
@@ -29,7 +35,8 @@ def calculate_trend_strength(data: pd.DataFrame) -> float:
         # Combine factors
         score = (momentum + consistency) / 2
         return max(min(abs(score), 1.0), 0.0)
-    except:
+    except Exception as e:
+        print(f"Error in calculate_trend_strength: {str(e)}")
         return 0.0
 
 def analyze_fundamental_factors(ticker: str) -> float:
@@ -64,20 +71,25 @@ def analyze_fundamental_factors(ticker: str) -> float:
 def analyze_market_cycle(data: pd.DataFrame) -> float:
     """Analyze market cycle based on price patterns and momentum."""
     try:
-        # Calculate momentum indicators
-        returns = data['Close'].pct_change()
+        # Calculate momentum indicators using pandas operations
+        price_series = pd.Series(data['Close'])
+        returns = price_series.pct_change()
         momentum = returns.rolling(window=20).mean()
         volatility = returns.rolling(window=20).std()
         
-        # Determine cycle phase
-        latest_momentum = float(momentum.tail(1).iloc[0]) if not momentum.empty else 0.0
-        latest_volatility = float(volatility.tail(1).iloc[0]) if not volatility.empty else 0.0
+        # Safe handling of latest values
+        valid_momentum = momentum[pd.notna(momentum)]
+        valid_volatility = volatility[pd.notna(volatility)]
         
-        if latest_momentum > 0 and latest_volatility < volatility.mean():
+        latest_momentum = float(valid_momentum.iloc[-1]) if len(valid_momentum) > 0 else 0.0
+        latest_volatility = float(valid_volatility.iloc[-1]) if len(valid_volatility) > 0 else 0.0
+        volatility_mean = float(valid_volatility.mean()) if len(valid_volatility) > 0 else 0.0
+        
+        if latest_momentum > 0 and latest_volatility < volatility_mean:
             return 0.8  # Upward trend with low volatility
         elif latest_momentum > 0:
             return 0.6  # Upward trend with high volatility
-        elif latest_momentum < 0 and latest_volatility > volatility.mean():
+        elif latest_momentum < 0 and latest_volatility > volatility_mean:
             return 0.2  # Downward trend with high volatility
         else:
             return 0.4  # Downward trend with low volatility
@@ -88,19 +100,30 @@ def analyze_volume_profile(data: pd.DataFrame) -> float:
     """Analyze volume profile for price levels."""
     try:
         # Calculate volume-weighted price levels
-        price_levels = pd.qcut(data['Close'], q=10)
-        volume_profile = data.groupby(price_levels)['Volume'].mean()
+        close_series = pd.Series(data['Close'].values)
+        volume_series = pd.Series(data['Volume'].values)
         
-        # Current price level's volume ratio
-        current_price = float(data['Close'].iloc[-1])
-        price_levels_list = list(price_levels)
-        current_level = price_levels_list[-1]
-        current_level_volume = float(volume_profile.get(current_level, volume_profile.mean()))
-        avg_volume = volume_profile.mean()
+        # Create price bins
+        bins = pd.qcut(close_series, q=10, duplicates='drop')
+        volume_profile = volume_series.groupby(bins).mean()
         
-        volume_ratio = current_level_volume / avg_volume
+        # Get the current price level
+        current_price = float(close_series.iloc[-1])
+        current_bin = pd.qcut([current_price], q=10, duplicates='drop', labels=False)[0]
+        
+        # Calculate volume metrics
+        mean_volume = float(volume_profile.mean())
+        
+        # Handle the case where the current bin exists in volume profile
+        try:
+            current_level_volume = float(volume_profile.iloc[current_bin])
+        except (IndexError, KeyError):
+            current_level_volume = mean_volume
+            
+        volume_ratio = current_level_volume / mean_volume if mean_volume > 0 else 1.0
         return min(float(volume_ratio), 1.0)
-    except:
+    except Exception as e:
+        print(f"Error in analyze_volume_profile: {str(e)}")
         return 0.5
 
 def calculate_support_resistance(data: pd.DataFrame) -> Dict[str, float]:
@@ -151,6 +174,9 @@ def determine_direction(score: float) -> str:
 
 def calculate_confidence(score: float, volatility: float) -> float:
     """Calculate prediction confidence."""
+    if pd.isna(score) or pd.isna(volatility):
+        return 0.1  # Return minimum confidence instead of NaN
+        
     base_confidence = abs(score - 0.5) * 2.5  # Increased sensitivity
     volatility_factor = max(1 - volatility * 1.5, 0)  # Less penalty for volatility
     confidence = min(base_confidence * volatility_factor, 1.0)
@@ -226,13 +252,22 @@ def predict_price_movement(data: pd.DataFrame, ticker: str) -> dict:
     }
     
     for timeframe, params in timeframes.items():
-        # Calculate technical score
+        # Before calculating volatility, check for valid data
         window_data = data.tail(params['window'])
+        if len(window_data) < params['window']:
+            continue
+
         technical_score = calculate_trend_strength(window_data)
         
-        # Calculate volatility
+        # Before volatility calculation, ensure we have enough data
         volatility_data = data.tail(params['volatility_window'])
+        if len(volatility_data) < params['volatility_window']:
+            continue
+
+        # Add null check for volatility calculation
         volatility = volatility_data['Close'].std() / volatility_data['Close'].mean()
+        if pd.isna(volatility):
+            volatility = data['Close'].std() / data['Close'].mean()  # Use full dataset if window fails
         
         # Calculate additional signals
         gap_and_go = calculate_gap_and_go_signals(window_data).iloc[-1]
