@@ -485,6 +485,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pandas-ta"
+version = "0.3.14b0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pandas" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f7/0b/1666f0a185d4f08215f53cc088122a73c92421447b04028f0464fabe1ce6/pandas_ta-0.3.14b.tar.gz", hash = "sha256:0fa35aec831d2815ea30b871688a8d20a76b288a7be2d26cc00c35cd8c09a993", size = 115089 }
+
+[[package]]
 name = "peewee"
 version = "3.17.8"
 source = { registry = "https://pypi.org/simple" }
@@ -671,17 +680,17 @@ name = "repl-nix-stocksavvyapp"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "pandas-ta" },
     { name = "plotly" },
     { name = "streamlit" },
-    { name = "ta-lib" },
     { name = "yfinance" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "pandas-ta", specifier = ">=0.3.14b0" },
     { name = "plotly", specifier = ">=5.24.1" },
     { name = "streamlit", specifier = ">=1.40.1" },
-    { name = "ta-lib", specifier = ">=0.5.1" },
     { name = "yfinance", specifier = ">=0.2.50" },
 ]
 
@@ -816,15 +825,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/80/70/b76a32201b04a5a2a
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9a/14/857d0734989f3d26f2f965b2e3f67568ea7a6e8a60cb9c1ed7f774b6d606/streamlit-1.40.1-py2.py3-none-any.whl", hash = "sha256:b9d7a317a0cc88edd7857c7e07dde9cf95647d3ae51cbfa8a3db82fbb8a2990d", size = 8645398 },
 ]
-
-[[package]]
-name = "ta-lib"
-version = "0.5.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/5a/a0/9272a65a64acae4457b8e6c8eea681766dea77243b001564a247f3c90b5b/TA-Lib-0.5.1.tar.gz", hash = "sha256:2beeacb7f54212d7c5a7a56bcdd65094d8d6d02f0a732246764c0a96172c9d2a", size = 369560 }
 
 [[package]]
 name = "tenacity"

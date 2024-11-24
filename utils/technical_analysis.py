@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import talib
+import pandas_ta as ta
 import streamlit as st
 
 @st.cache_data
@@ -11,24 +11,24 @@ def calculate_indicators(df: pd.DataFrame) -> dict:
     
     try:
         # Calculate Moving Averages
-        df['SMA_20'] = talib.SMA(df['Close'], timeperiod=20)
-        df['SMA_50'] = talib.SMA(df['Close'], timeperiod=50)
-        df['EMA_20'] = talib.EMA(df['Close'], timeperiod=20)
+        df['SMA_20'] = df.ta.sma(length=20)
+        df['SMA_50'] = df.ta.sma(length=50)
+        df['EMA_20'] = df.ta.ema(length=20)
         
         # RSI
-        df['RSI'] = talib.RSI(df['Close'], timeperiod=14)
+        df['RSI'] = df.ta.rsi(length=14)
         
         # MACD
-        macd, signal, hist = talib.MACD(df['Close'])
-        df['MACD'] = macd
-        df['MACD_Signal'] = signal
-        df['MACD_Hist'] = hist
+        macd = df.ta.macd()
+        df['MACD'] = macd['MACD_12_26_9']
+        df['MACD_Signal'] = macd['MACDs_12_26_9']
+        df['MACD_Hist'] = macd['MACDh_12_26_9']
         
         # Bollinger Bands
-        upper, middle, lower = talib.BBANDS(df['Close'])
-        df['BB_Upper'] = upper
-        df['BB_Middle'] = middle
-        df['BB_Lower'] = lower
+        bbands = df.ta.bbands()
+        df['BB_Upper'] = bbands['BBU_20_2.0']
+        df['BB_Middle'] = bbands['BBM_20_2.0']
+        df['BB_Lower'] = bbands['BBL_20_2.0']
         
         return df
     except Exception as e:
