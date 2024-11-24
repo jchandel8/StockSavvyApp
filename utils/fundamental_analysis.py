@@ -4,26 +4,48 @@ import pandas as pd
 
 @st.cache_data(ttl=86400)
 def get_fundamental_metrics(ticker: str) -> dict:
-    """Get fundamental analysis metrics for a stock."""
+    """Get fundamental analysis metrics for a stock or cryptocurrency."""
     try:
         stock = yf.Ticker(ticker)
         info = stock.info
         
-        metrics = {
-            'Market Cap': format_market_cap(info.get('marketCap', 0)),
-            'P/E Ratio': round(info.get('forwardPE', 0), 2),
-            'EPS': round(info.get('trailingEps', 0), 2),
-            'ROE': f"{round(info.get('returnOnEquity', 0) * 100, 2)}%",
-            'Debt to Equity': round(info.get('debtToEquity', 0), 2),
-            'Current Ratio': round(info.get('currentRatio', 0), 2),
-            'Profit Margin': f"{round(info.get('profitMargins', 0) * 100, 2)}%",
-            'Beta': round(info.get('beta', 0), 2)
-        }
+        # Check if it's a cryptocurrency
+        if ticker.endswith(('-USD', 'USDT', 'BTC')):
+            metrics = {
+                'Market Cap': format_market_cap(info.get('marketCap', 0)),
+                '24h Volume': format_market_cap(info.get('volume24Hr', 0)),
+                'Circulating Supply': format_number(info.get('circulatingSupply', 0)),
+                'Total Supply': format_number(info.get('totalSupply', 0)),
+                'Max Supply': format_number(info.get('maxSupply', 0)),
+                'Market Dominance': f"{round(info.get('marketDominance', 0) * 100, 2)}%",
+                '24h Change': f"{round(info.get('priceChangePercent24h', 0), 2)}%",
+                'Trading Pairs': info.get('tradingPairs', 0)
+            }
+        else:
+            metrics = {
+                'Market Cap': format_market_cap(info.get('marketCap', 0)),
+                'P/E Ratio': round(info.get('forwardPE', 0), 2),
+                'EPS': round(info.get('trailingEps', 0), 2),
+                'ROE': f"{round(info.get('returnOnEquity', 0) * 100, 2)}%",
+                'Debt to Equity': round(info.get('debtToEquity', 0), 2),
+                'Current Ratio': round(info.get('currentRatio', 0), 2),
+                'Profit Margin': f"{round(info.get('profitMargins', 0) * 100, 2)}%",
+                'Beta': round(info.get('beta', 0), 2)
+            }
         
         return metrics
     except Exception as e:
         st.error(f"Error fetching fundamental metrics: {str(e)}")
         return {}
+def format_number(number: float) -> str:
+    """Format large numbers with appropriate suffixes."""
+    suffixes = ['', 'K', 'M', 'B', 'T']
+    for suffix in suffixes:
+        if number < 1000:
+            return f"{number:.2f}{suffix}"
+        number /= 1000
+    return f"{number:.2f}T"
+
 
 def format_market_cap(market_cap: float) -> str:
     """Format market cap in trillions/billions/millions/thousands."""

@@ -92,7 +92,21 @@ if ticker:
         
         # Technical Analysis
         st.subheader("Technical Analysis")
-        df = calculate_indicators(df)
+        is_crypto = is_crypto(ticker)
+        df = calculate_indicators(df, is_crypto=is_crypto)
+        
+        if is_crypto:
+            # Add crypto-specific metrics
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("24h Volume", format_market_cap(info.get('volume_24h', 0)))
+            with col2:
+                st.metric("24h Change", f"{info.get('price_change_24h', 0):.2f}%")
+            with col3:
+                st.metric("Circulating Supply", format_number(info.get('circulating_supply', 0)))
+            with col4:
+                st.metric("Market Dominance", f"{info.get('market_dominance', 0):.2f}%")
+        
         fig = create_stock_chart(df, None)
         st.plotly_chart(fig, use_container_width=True)
         

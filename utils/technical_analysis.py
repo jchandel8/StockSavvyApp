@@ -1,5 +1,13 @@
 import pandas as pd
 import numpy as np
+from typing import Dict, Any
+import logging
+
+# Configure logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+import numpy as np
 import streamlit as st
 import logging
 
@@ -65,8 +73,14 @@ def calculate_bollinger_bands(data: pd.DataFrame, window: int = 20, num_std: flo
         return empty_series, empty_series, empty_series
 
 @st.cache_data
-def calculate_indicators(df: pd.DataFrame) -> pd.DataFrame:
-    """Calculate technical indicators for the given stock data."""
+def calculate_indicators(df: pd.DataFrame, is_crypto: bool = False) -> pd.DataFrame:
+    """Calculate technical indicators for the given stock/crypto data."""
+    # Adjust time windows for crypto (24/7 trading)
+    rsi_period = 14 if not is_crypto else 24
+    macd_fast = 12 if not is_crypto else 20
+    macd_slow = 26 if not is_crypto else 44
+    macd_signal = 9 if not is_crypto else 15
+    bb_period = 20 if not is_crypto else 34
     if df is None:
         logger.error("DataFrame is None")
         return pd.DataFrame()
@@ -194,6 +208,25 @@ def generate_signals(df: pd.DataFrame) -> dict:
         
         # Moving Average Signals
         logger.info("Checking Moving Average signals")
+def calculate_mvrv_ratio(df: pd.DataFrame) -> pd.Series:
+    """Calculate Market Value to Realized Value (MVRV) ratio for cryptocurrencies."""
+    try:
+        if df is None or df.empty or 'Close' not in df.columns or 'Volume' not in df.columns:
+            return pd.Series(index=df.index if df is not None else None)
+        
+        # Calculate realized value (average cost basis)
+        volume_price = df['Close'] * df['Volume']
+        realized_value = volume_price.rolling(window=30).sum() / df['Volume'].rolling(window=30).sum()
+        
+        # Calculate MVRV ratio
+        market_value = df['Close']
+        mvrv_ratio = market_value / realized_value
+        
+        return mvrv_ratio
+    except Exception as e:
+        logger.error(f"Error calculating MVRV ratio: {str(e)}")
+        return pd.Series(index=df.index if df is not None else None)
+
         if (latest_values['close_current'] > latest_values['sma50_current'] and 
             latest_values['close_prev'] <= latest_values['sma50_prev']):
             signals['buy_signals'].append('Price crossed above 50-day MA')
