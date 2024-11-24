@@ -6,14 +6,45 @@ import streamlit as st
 
 def is_crypto(symbol: str) -> bool:
     """Check if the symbol is a cryptocurrency."""
-    return symbol.endswith('-USD') or symbol.endswith('USDT') or symbol.endswith('BTC')
+    crypto_suffixes = ['-USD', 'USD', 'USDT', 'BTC']
+    crypto_prefixes = ['BTC', 'ETH', 'XRP', 'DOGE', 'ADA']
+    
+    # Clean the symbol
+    symbol = symbol.upper().strip()
+    
+    # Check if it's a known crypto by prefix
+    if any(symbol.startswith(prefix) for prefix in crypto_prefixes):
+        return True
+    
+    # Check for crypto suffixes
+    if any(symbol.endswith(suffix) for suffix in crypto_suffixes):
+        return True
+        
+    return False
+
+def format_crypto_symbol(symbol: str) -> str:
+    """Format cryptocurrency symbol to ensure proper data fetching."""
+    # Remove any existing suffixes
+    base_symbol = symbol.upper().strip()
+    for suffix in ['-USD', 'USD', 'USDT', 'BTC']:
+        if base_symbol.endswith(suffix):
+            base_symbol = base_symbol[:-len(suffix)]
+    
+    # Add -USD suffix if not present
+    if not base_symbol.endswith('-USD'):
+        return f"{base_symbol}-USD"
+    return base_symbol
 
 @st.cache_data(ttl=3600)
 def get_stock_data(ticker: str, period: str = "1y") -> pd.DataFrame:
     """Fetch stock/crypto data from Yahoo Finance with caching."""
     try:
         stock = yf.Ticker(ticker)
-        df = stock.history(period=period)
+        # Use different period for crypto
+        if is_crypto(ticker):
+            df = stock.history(period='1mo')  # Use '1mo' instead of '1y' for crypto
+        else:
+            df = stock.history(period=period)
         return df
     except Exception as e:
         st.error(f"Error fetching data for {ticker}: {str(e)}")
@@ -70,6 +101,8 @@ def search_stocks(query: str) -> list:
                 if 'longName' in info:
                     symbol = info.get('symbol', '')
                     is_crypto_symbol = is_crypto(symbol)
+                    if is_crypto_symbol:
+                        symbol = format_crypto_symbol(symbol)
                     results.append({
                         'symbol': symbol,
                         'name': info.get('longName', ''),
@@ -91,6 +124,8 @@ def search_stocks(query: str) -> list:
             for quote in data.get('quotes', []):
                 symbol = quote.get('symbol', '')
                 is_crypto_symbol = is_crypto(symbol)
+                if is_crypto_symbol:
+                    symbol = format_crypto_symbol(symbol)
                 if is_crypto_symbol or not any(r['symbol'] == symbol for r in results):
                     results.append({
                         'symbol': symbol,
