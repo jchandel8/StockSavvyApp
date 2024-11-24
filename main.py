@@ -1,4 +1,8 @@
 import streamlit as st
+from utils.stock_data import get_stock_data, get_stock_info, search_stocks
+from utils.technical_analysis import calculate_indicators, generate_signals
+from utils.fundamental_analysis import get_fundamental_metrics, analyze_fundamentals
+import streamlit as st
 import pandas as pd
 from utils.stock_data import get_stock_data, get_stock_info, search_stocks
 from utils.technical_analysis import calculate_indicators, generate_signals
@@ -22,17 +26,24 @@ with open('styles/style.css') as f:
 # Title and search
 st.title("Stock Analysis Platform")
 
+# Create placeholder for search input
+search_container = st.container()
+search_input = search_container.empty()
+
 # Search box with auto-complete
-search_query = st.text_input("Search for a stock", value="", key="stock_search")
+search_query = search_input.text_input("Search for a stock", value="", key="stock_search")
 stock_suggestions = search_stocks(search_query)
 
-if stock_suggestions:
-    # Create a list of formatted options for the selectbox
-    options = [f"{stock['name']} ({stock['symbol']})" for stock in stock_suggestions]
-    selected = st.selectbox("Select a stock", options, key="stock_select")
-    
-    # Extract the ticker from the selected option
-    ticker = selected.split("(")[-1].strip(")") if selected else ""
+# Show real-time suggestions
+if stock_suggestions and search_query:
+    suggestion_container = st.container()
+    with suggestion_container:
+        for stock in stock_suggestions:
+            if st.button(f"{stock['name']} ({stock['symbol']}) - {stock['exchange']}", key=f"btn_{stock['symbol']}"):
+                search_query = stock['symbol']
+                ticker = stock['symbol']
+                break
+    ticker = search_query
 else:
     ticker = search_query
 
@@ -66,27 +77,33 @@ if ticker:
         
         # Price Predictions
         st.subheader("Price Predictions")
-        prediction = get_prediction(df)
+        predictions = get_prediction(df)
         
-        pred_cols = st.columns(4)
-        with pred_cols[0]:
-            direction_color = {
-                'UP': '🟢',
-                'DOWN': '🔴',
-                'NEUTRAL': '⚪'
-            }.get(prediction['direction'], '⚪')
-            st.metric("Predicted Direction", f"{direction_color} {prediction['direction']}")
+        timeframe_tabs = st.tabs(['Short-term', 'Medium-term', 'Long-term'])
         
-        with pred_cols[1]:
-            st.metric("Confidence", f"{prediction['confidence']*100:.1f}%")
-        
-        with pred_cols[2]:
-            if prediction['predicted_high']:
-                st.metric("Predicted High", f"${prediction['predicted_high']:.2f}")
-        
-        with pred_cols[3]:
-            if prediction['predicted_low']:
-                st.metric("Predicted Low", f"${prediction['predicted_low']:.2f}")
+        for tab, (timeframe, pred) in zip(timeframe_tabs, predictions.items()):
+            with tab:
+                st.write(f"**{pred['timeframe']} Forecast**")
+                pred_cols = st.columns(4)
+                
+                with pred_cols[0]:
+                    direction_color = {
+                        'UP': '🟢',
+                        'DOWN': '🔴',
+                        'NEUTRAL': '⚪'
+                    }.get(pred['direction'], '⚪')
+                    st.metric("Direction", f"{direction_color} {pred['direction']}")
+                
+                with pred_cols[1]:
+                    st.metric("Confidence", f"{pred['confidence']*100:.1f}%")
+                
+                with pred_cols[2]:
+                    if pred['predicted_high']:
+                        st.metric("Predicted High", f"${pred['predicted_high']:.2f}")
+                
+                with pred_cols[3]:
+                    if pred['predicted_low']:
+                        st.metric("Predicted Low", f"${pred['predicted_low']:.2f}")
         
         # Fundamental Analysis
         st.subheader("Fundamental Analysis")

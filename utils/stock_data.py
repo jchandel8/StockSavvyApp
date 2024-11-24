@@ -1,4 +1,5 @@
 import yfinance as yf
+import requests
 import pandas as pd
 from datetime import datetime, timedelta
 import streamlit as st
