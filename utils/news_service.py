@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import os
 from datetime import datetime, timedelta
+from utils.stock_data import is_crypto
 
 @st.cache_data(ttl=3600)
 def get_news(ticker: str, days: int = 7) -> list:
