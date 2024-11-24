@@ -12,55 +12,111 @@ from utils.technical_analysis import (
     calculate_mvrv_ratio
 )
 
-def calculate_prediction(data: pd.DataFrame, timeframe: str = 'short_term', look_back: int = None) -> dict:
-    # Set look_back periods based on timeframe
-    if look_back is None:
-        look_back = {
-            'daily': 15,       # 1 day prediction
-            'short_term': 30,  # 1 week prediction
-            'medium_term': 60, # 1 month prediction
-            'long_term': 90    # 3 months prediction
-        }.get(timeframe, 30)
+def calculate_atr(data, period=14):
+    """Calculate Average True Range."""
+    high = data['High']
+    low = data['Low']
+    close = data['Close']
     
+    tr1 = high - low
+    tr2 = abs(high - close.shift())
+    tr3 = abs(low - close.shift())
+    
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    atr = tr.rolling(window=period).mean()
+    return atr
+
+def build_lstm_model(X, y):
+    """Build and train LSTM model."""
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.layers import LSTM, Dense, Dropout
+    
+    model = Sequential([
+        LSTM(50, return_sequences=True, input_shape=(X.shape[1], 1)),
+        Dropout(0.2),
+        LSTM(50),
+        Dropout(0.2),
+        Dense(1)
+    ])
+    model.compile(optimizer='adam', loss='mse')
+    model.fit(X, y, epochs=50, batch_size=32, verbose=0)
+    return model
+
+def calculate_prediction(data: pd.DataFrame, timeframe: str = 'short_term', look_back: int = None) -> dict:
     try:
-        # Prepare data with specific look_back
-        prices = np.array(data['Close']).reshape(-1, 1)
-        scaler = MinMaxScaler(feature_range=(0, 1))
-        scaled_data = scaler.fit_transform(prices)
+        from sklearn.ensemble import RandomForestRegressor
+        from xgboost import XGBRegressor
+        from sklearn.svm import SVR
         
-        # Prepare sequences with timeframe-specific look_back
-        X, y = [], []
-        for i in range(look_back, len(scaled_data)):
-            X.append(scaled_data[i-look_back:i, 0])
-            y.append(scaled_data[i, 0])
+        # Feature Engineering
+        features = pd.DataFrame()
         
-        X, y = np.array(X), np.array(y)
+        # Technical Indicators
+        features['rsi'] = calculate_rsi(data['Close'])
+        features['macd'], features['signal'] = calculate_macd(data['Close'])
+        features['bb_upper'], features['bb_lower'] = calculate_bollinger_bands(data['Close'])
+        features['atr'] = calculate_atr(data[['High', 'Low', 'Close']])
         
-        # Train model
-        model = LinearRegression()
-        model.fit(X, y)
+        # Volume Analysis
+        features['volume_sma'] = data['Volume'].rolling(window=20).mean()
+        features['volume_std'] = data['Volume'].rolling(window=20).std()
         
-        # Make prediction
-        last_sequence = scaled_data[-look_back:].reshape(1, -1)
-        predicted_scaled = model.predict(last_sequence)
-        predicted_price = scaler.inverse_transform(predicted_scaled.reshape(-1, 1))
+        # Price Momentum
+        features['price_momentum'] = data['Close'].pct_change(periods=5)
+        features['price_acceleration'] = features['price_momentum'].diff()
         
-        # Calculate volatility factor based on timeframe
-        volatility = np.std(data['Close'].pct_change().dropna())
-        volatility_factor = {
-            'short_term': 1.0,
-            'medium_term': 1.5,
-            'long_term': 2.0
-        }.get(timeframe, 1.0)
+        # Volatility
+        features['volatility'] = data['Close'].pct_change().rolling(window=20).std()
         
-        # Adjust confidence based on timeframe and volatility
-        base_confidence = max(min(model.score(X, y), 1.0), 0.0)
-        adjusted_confidence = base_confidence * (1 / (1 + volatility * volatility_factor))
+        # Market Trend
+        features['trend_strength'] = calculate_trend_strength(data)
+        
+        # Prepare data for models
+        X = features.dropna().values
+        y = data['Close'].shift(-1).dropna().values[:-1]
+        
+        if len(X) < 2 or len(y) < 2:
+            return {}
+        
+        # Train multiple models
+        models = {
+            'rf': RandomForestRegressor(n_estimators=100, random_state=42),
+            'xgb': XGBRegressor(objective='reg:squarederror', random_state=42),
+            'svr': SVR(kernel='rbf')
+        }
+        
+        # Train and make predictions
+        predictions = {}
+        weights = {'rf': 0.4, 'xgb': 0.4, 'svr': 0.2}
+        
+        for name, model in models.items():
+            try:
+                model.fit(X[:-1], y)
+                pred = model.predict(X[-1:])
+                predictions[name] = pred[0]
+            except Exception as e:
+                st.error(f"Error in {name} model: {str(e)}")
+                continue
+        
+        if not predictions:
+            return {}
+        
+        # Weighted ensemble prediction
+        final_prediction = sum(predictions[model] * weight 
+                             for model, weight in weights.items()
+                             if model in predictions)
+        
+        # Calculate confidence based on model agreement
+        std_predictions = np.std(list(predictions.values()))
+        max_std = np.std(data['Close'])
+        confidence = 1 - (std_predictions / max_std) if max_std > 0 else 0.5
         
         return {
-            'forecast': float(predicted_price[0][0]),
-            'confidence': adjusted_confidence
+            'forecast': final_prediction,
+            'confidence': confidence,
+            'model_predictions': predictions
         }
+        
     except Exception as e:
         st.error(f"Error in prediction: {str(e)}")
         return {}
