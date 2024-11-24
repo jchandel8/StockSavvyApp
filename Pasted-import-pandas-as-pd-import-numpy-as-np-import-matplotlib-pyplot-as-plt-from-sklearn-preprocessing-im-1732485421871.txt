@@ -1,0 +1,87 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
+from keras.models import Sequential
+from keras.layers import LSTM, Dense, Dropout
+
+def predict_price(data, model, scaler, look_back):
+    """Predicts the future price using the given model and scaler."""
+    x_test = []
+    x_test.append(data[-look_back:].values)
+    x_test = np.array(x_test)
+    x_test = np.reshape(x_test, (x_test.shape[0], x_test.shape[1], 1))
+    predicted_price = model.predict(x_test)
+    predicted_price = scaler.inverse_transform(predicted_price)
+    return predicted_price[0][0]
+
+def get_sentiment_analysis(news):
+    """Performs sentiment analysis on news articles."""
+    # Use a sentiment analysis library like TextBlob or VADER
+    # Analyze news articles related to the asset
+    # Calculate sentiment score (positive, negative, neutral)
+    # Return a sentiment score or a sentiment label
+
+def get_technical_indicators(data):
+    """Calculates technical indicators."""
+    # Calculate indicators like RSI, MACD, Bollinger Bands, etc.
+    # Add these indicators as new features to the dataset
+
+def build_and_train_model(data, look_back):
+    """Builds and trains an LSTM model."""
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    scaled_data = scaler.fit_transform(data)
+
+    x_train, y_train = [], []
+    for i in range(look_back, len(scaled_data)):
+        x_train.append(scaled_data[i-look_back:i, 0])
+        y_train.append(scaled_data[i, 0])
+
+    x_train, y_train = np.array(x_train), np.array(y_train)
+    x_train = np.reshape(x_train, (x_train.shape[0], x_train.shape[1], 1))
+
+    model = Sequential()
+    model.add(LSTM(units=50, return_sequences=True, input_shape=(x_train.shape[1], 1)))
+    model.add(Dropout(0.2))
+    model.add(LSTM(units=50))
+    model.add(Dropout(0.2))
+    model.add(Dense(units=1))
+
+    model.compile(optimizer='adam', loss='mean_squared_error')
+    model.fit(x_train, y_train, epochs=100, batch_size=32)
+
+    return model, scaler
+
+# Main function
+def main():
+    # Load historical data
+    data = pd.read_csv('your_data.csv')
+
+    # Preprocess data
+    # Clean data, handle missing values, and normalize
+    
+    # Feature engineering
+    data = get_technical_indicators(data)
+    data = get_sentiment_analysis(news_data)  # Assuming news_data is available
+
+    # Split data into training and testing sets
+    train_size = int(len(data) * 0.8)
+    train_data, test_data = data[:train_size], data[train_size:]
+
+    # Build and train the model
+    model, scaler = build_and_train_model(train_data, look_back=60)
+
+    # Make predictions
+    predicted_price = predict_price(test_data, model, scaler, look_back=60)
+
+    # Evaluate model performance
+    # Calculate metrics like RMSE, MAE, MAPE
+
+    # Determine bullish or bearish sentiment
+    if predicted_price > test_data.iloc[-1]['Close']:
+        print("Bullish")
+    else:
+        print("Bearish")
+
+if __name__ == "__main__":
+    main()

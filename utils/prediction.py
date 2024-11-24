@@ -77,41 +77,48 @@ from sklearn.preprocessing import MinMaxScaler
 import streamlit as st
 from statsmodels.tsa.arima.model import ARIMA
 
-def calculate_simple_prediction(data: pd.DataFrame, is_crypto: bool = False) -> dict:
-    """
-    Calculate ARIMA predictions for the given data.
-    Args:
-        data: DataFrame containing price data
-        is_crypto: Boolean indicating if the asset is a cryptocurrency
-    Returns:
-        Dictionary containing ARIMA forecast and confidence
-    """
+def calculate_lstm_prediction(data: pd.DataFrame, look_back: int = 60) -> dict:
     try:
         # Prepare data
-        prices = data['Close'].values
+        prices = data['Close'].values.reshape(-1, 1)
+        scaler = MinMaxScaler(feature_range=(0, 1))
+        scaled_data = scaler.fit_transform(prices)
         
-        # Fit ARIMA model
-        try:
-            model = ARIMA(prices, order=(5,1,0))
-            model_fit = model.fit(method='css')
-        except Exception as e:
-            st.error(f"Error fitting ARIMA model: {str(e)}")
-            return {}
+        # Prepare sequences
+        x_train, y_train = [], []
+        for i in range(look_back, len(scaled_data)):
+            x_train.append(scaled_data[i-look_back:i, 0])
+            y_train.append(scaled_data[i, 0])
+        
+        x_train, y_train = np.array(x_train), np.array(y_train)
+        x_train = np.reshape(x_train, (x_train.shape[0], x_train.shape[1], 1))
+        
+        # Build and train model
+        model = Sequential()
+        model.add(LSTM(units=50, return_sequences=True, input_shape=(look_back, 1)))
+        model.add(Dropout(0.2))
+        model.add(LSTM(units=50))
+        model.add(Dropout(0.2))
+        model.add(Dense(units=1))
+        
+        model.compile(optimizer='adam', loss='mean_squared_error')
+        model.fit(x_train, y_train, epochs=100, batch_size=32, verbose=0)
         
         # Make prediction
-        forecast = model_fit.forecast(steps=1)[0]
+        x_test = []
+        x_test.append(scaled_data[-look_back:])
+        x_test = np.array(x_test)
+        x_test = np.reshape(x_test, (x_test.shape[0], x_test.shape[1], 1))
         
-        # Calculate confidence based on model performance
-        last_price = float(prices[-1])
-        confidence = max(0.5, min(0.9, 1.0 - model_fit.mse / (last_price ** 2)))
+        predicted_price = model.predict(x_test)
+        predicted_price = scaler.inverse_transform(predicted_price)
         
         return {
-            'arima_forecast': float(forecast),
-            'confidence': float(confidence),
-            'model_order': '(5,1,0)'
+            'lstm_forecast': float(predicted_price[0][0]),
+            'confidence': 0.8
         }
     except Exception as e:
-        st.error(f"Error in ARIMA prediction: {str(e)}")
+        st.error(f"Error in LSTM prediction: {str(e)}")
         return {}
 
 def calculate_trend_strength(data: pd.DataFrame) -> float:
@@ -481,15 +488,6 @@ def predict_price_movement(data: pd.DataFrame, ticker: str) -> dict:
             'predicted_low': calculate_target(last_price, predicted_range, 'low', support_resistance)
         }
     
-    # Add ARIMA predictions
-    try:
-        arima_results = calculate_arima_prediction(data, is_crypto=is_crypto(ticker))
-        if arima_results:
-            for timeframe in predictions:
-                predictions[timeframe].update(arima_results)
-    except Exception as e:
-        st.error(f"Error adding ARIMA predictions: {str(e)}")
-
     # Add LSTM predictions
     try:
         lstm_results = calculate_lstm_prediction(data, is_crypto=is_crypto(ticker))
