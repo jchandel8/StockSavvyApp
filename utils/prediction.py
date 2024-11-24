@@ -76,6 +76,9 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 import streamlit as st
 from statsmodels.tsa.arima.model import ARIMA
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Dropout
+from utils.stock_data import is_crypto
 
 def calculate_lstm_prediction(data: pd.DataFrame, look_back: int = 60) -> dict:
     try:
