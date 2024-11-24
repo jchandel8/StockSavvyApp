@@ -146,6 +146,8 @@ if ticker:
                         st.metric("ARIMA Forecast", f"${pred['arima_forecast']:.2f}")
                         st.metric("Lower Bound", f"${pred['arima_lower']:.2f}")
                         st.metric("Upper Bound", f"${pred['arima_upper']:.2f}")
+                        if 'model_order' in pred:
+                            st.write(f"Model Order (p,d,q): {pred['model_order']}")
         
         # Fundamental Analysis
         st.subheader("Fundamental Analysis")

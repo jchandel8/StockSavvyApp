@@ -24,23 +24,43 @@ def calculate_arima_prediction(data: pd.DataFrame, steps: int = 30) -> dict:
         adf_result = adfuller(prices)
         d = 1 if adf_result[1] > 0.05 else 0  # Determine differencing order
         
-        # Fit ARIMA model
-        model = ARIMA(prices, order=(5,d,2))  # p=5, d=dynamic, q=2
-        model_fit = model.fit()
+        # Grid search for optimal parameters
+        best_aic = float('inf')
+        best_params = (1, d, 1)
+        
+        # Try different combinations of p and q
+        p_values = range(0, 6)
+        q_values = range(0, 4)
+        
+        for p in p_values:
+            for q in q_values:
+                try:
+                    model = ARIMA(prices, order=(p, d, q))
+                    model_fit = model.fit()
+                    if model_fit.aic < best_aic:
+                        best_aic = model_fit.aic
+                        best_params = (p, d, q)
+                except:
+                    continue
+        
+        # Fit final model with best parameters
+        final_model = ARIMA(prices, order=best_params)
+        final_fit = final_model.fit()
         
         # Make predictions
-        forecast = model_fit.forecast(steps=steps)
-        confidence_intervals = model_fit.get_forecast(steps=steps).conf_int()
+        forecast = final_fit.forecast(steps=steps)
+        confidence_intervals = final_fit.get_forecast(steps=steps).conf_int()
         
         return {
             'forecast': forecast,
             'lower_bound': confidence_intervals[:,0],
             'upper_bound': confidence_intervals[:,1],
-            'model_aic': model_fit.aic  # Model quality metric
+            'model_aic': final_fit.aic,
+            'model_order': best_params
         }
     except Exception as e:
         st.error(f"Error in ARIMA prediction: {str(e)}")
-        return None
+        return {}  # Return empty dict instead of None to match return type
 
 def calculate_trend_strength(data: pd.DataFrame) -> float:
     """Calculate the strength of the current trend."""
