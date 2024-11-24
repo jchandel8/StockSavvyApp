@@ -118,7 +118,7 @@ if ticker:
             sentiment_label, sentiment_color = format_news_sentiment(article['sentiment'])
             with st.expander(f"{article['title']} ({sentiment_label})"):
                 if article.get('image_url'):
-                    st.image(article['image_url'], use_column_width=True)
+                    st.image(article['image_url'], use_container_width=True)
                 st.write(article['summary'])
                 st.write(f"Source: {article['source']} | [Read More]({article['url']})")
     else:

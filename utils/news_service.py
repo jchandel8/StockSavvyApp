@@ -25,8 +25,18 @@ def get_news(ticker: str, days: int = 7) -> list:
         
         articles = []
         for article in data["feed"][:10]:  # Limit to 10 articles
-            # Extract image URL from the article
-            image_url = article.get('banner_image', '') or article.get('image', '')
+            # Extract and validate image URL
+            image_url = article.get('banner_image') or article.get('image', '')
+            if image_url and (image_url.startswith('http://') or image_url.startswith('https://')):
+                try:
+                    # Validate if the image URL is accessible
+                    response = requests.head(image_url, timeout=2)
+                    if response.status_code != 200:
+                        image_url = ''
+                except:
+                    image_url = ''
+            else:
+                image_url = ''
             
             articles.append({
                 'title': article.get('title', ''),
