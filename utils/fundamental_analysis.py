@@ -26,11 +26,15 @@ def get_fundamental_metrics(ticker: str) -> dict:
         return {}
 
 def format_market_cap(market_cap: float) -> str:
-    """Format market cap in billions/millions."""
-    if market_cap >= 1e9:
+    """Format market cap in trillions/billions/millions/thousands."""
+    if market_cap >= 1e12:
+        return f"${round(market_cap/1e12, 2)}T"
+    elif market_cap >= 1e9:
         return f"${round(market_cap/1e9, 2)}B"
     elif market_cap >= 1e6:
         return f"${round(market_cap/1e6, 2)}M"
+    elif market_cap >= 1e3:
+        return f"${round(market_cap/1e3, 2)}K"
     else:
         return f"${round(market_cap, 2)}"
 

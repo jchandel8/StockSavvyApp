@@ -1,14 +1,32 @@
 import streamlit as st
 
+def get_signal_html(signal_type: str) -> str:
+    colors = {
+        'buy': '#00ff00',
+        'sell': '#ff0000',
+        'neutral': '#808080'
+    }
+    return f'''
+        <div style="
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            background: {colors[signal_type]};
+            border-radius: 50%;
+            box-shadow: 0 0 8px {colors[signal_type]};
+            margin-right: 8px;
+            vertical-align: middle;
+        "></div>
+    '''
+
 def display_signals(signals: dict):
-    """Display trading signals and explanations."""
     col1, col2 = st.columns(2)
     
     with col1:
         st.subheader("Buy Signals")
         if signals['buy_signals']:
             for signal in signals['buy_signals']:
-                st.markdown(f"🟢 {signal}")
+                st.markdown(get_signal_html('buy') + signal, unsafe_allow_html=True)
         else:
             st.write("No buy signals detected")
     
@@ -16,15 +34,13 @@ def display_signals(signals: dict):
         st.subheader("Sell Signals")
         if signals['sell_signals']:
             for signal in signals['sell_signals']:
-                st.markdown(f"🔴 {signal}")
+                st.markdown(get_signal_html('sell') + signal, unsafe_allow_html=True)
         else:
             st.write("No sell signals detected")
 
 def display_technical_summary(df):
-    """Display technical analysis summary."""
     st.subheader("Technical Analysis Summary")
     
-    # Latest values
     current_price = df['Close'].iloc[-1]
     rsi = df['RSI'].iloc[-1]
     macd = df['MACD'].iloc[-1]
@@ -36,9 +52,9 @@ def display_technical_summary(df):
         st.metric("Current Price", f"${current_price:.2f}")
     
     with cols[1]:
-        rsi_color = "🟢" if rsi < 30 else "🔴" if rsi > 70 else "⚪"
-        st.metric("RSI", f"{rsi:.2f} {rsi_color}")
+        rsi_type = 'buy' if rsi < 30 else 'sell' if rsi > 70 else 'neutral'
+        st.markdown(get_signal_html(rsi_type) + f"RSI: {rsi:.2f}", unsafe_allow_html=True)
     
     with cols[2]:
-        macd_signal = "🟢" if macd > signal else "🔴"
-        st.metric("MACD", f"{macd:.2f} {macd_signal}")
+        macd_type = 'buy' if macd > signal else 'sell'
+        st.markdown(get_signal_html(macd_type) + f"MACD: {macd:.2f}", unsafe_allow_html=True)
