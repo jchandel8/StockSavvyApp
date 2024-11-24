@@ -22,6 +22,24 @@ def get_signal_html(signal_type: str) -> str:
 def display_signals(signals: dict):
     col1, col2 = st.columns(2)
     
+    status_messages = {
+        'loading': "Loading signals...",
+        'no_data': "No data available",
+        'missing_data': "Insufficient data for signal generation",
+        'invalid_data': "Invalid data detected",
+        'error': "Error generating signals",
+    }
+    
+    if signals.get('status') in status_messages and signals['status'] != 'complete':
+        message = status_messages[signals['status']]
+        with col1:
+            st.subheader("Buy Signals")
+            st.info(message)
+        with col2:
+            st.subheader("Sell Signals")
+            st.info(message)
+        return
+    
     with col1:
         st.subheader("Buy Signals")
         if signals['buy_signals']:
