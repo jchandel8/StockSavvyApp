@@ -15,28 +15,34 @@ from utils.technical_analysis import (
     calculate_mvrv_ratio
 )
 
-def calculate_arima_prediction(data: pd.DataFrame, steps: int = 30) -> dict:
+def calculate_arima_prediction(data: pd.DataFrame, is_crypto: bool = False, steps: int = 30) -> dict:
     try:
         # Prepare data
         prices = data['Close'].values
         
+        # Different parameters for crypto vs stocks
+        if is_crypto:
+            # Use shorter window for crypto due to higher volatility
+            prices = prices[-500:]  # Use last 500 data points
+            p_values = range(0, 3)  # Reduced AR terms
+            q_values = range(0, 2)  # Reduced MA terms
+        else:
+            p_values = range(0, 6)
+            q_values = range(0, 4)
+        
         # Perform Augmented Dickey-Fuller test for stationarity
         adf_result = adfuller(prices)
-        d = 1 if adf_result[1] > 0.05 else 0  # Determine differencing order
+        d = 1 if adf_result[1] > 0.05 else 0
         
-        # Grid search for optimal parameters
         best_aic = float('inf')
         best_params = (1, d, 1)
         
-        # Try different combinations of p and q
-        p_values = range(0, 6)
-        q_values = range(0, 4)
-        
+        # Grid search with more stable parameters for crypto
         for p in p_values:
             for q in q_values:
                 try:
                     model = ARIMA(prices, order=(p, d, q))
-                    model_fit = model.fit()
+                    model_fit = model.fit(method='css' if is_crypto else 'mle')  # Use CSS method for crypto
                     if model_fit.aic < best_aic:
                         best_aic = model_fit.aic
                         best_params = (p, d, q)
@@ -45,7 +51,7 @@ def calculate_arima_prediction(data: pd.DataFrame, steps: int = 30) -> dict:
         
         # Fit final model with best parameters
         final_model = ARIMA(prices, order=best_params)
-        final_fit = final_model.fit()
+        final_fit = final_model.fit(method='css' if is_crypto else 'mle')
         
         # Make predictions
         forecast = final_fit.forecast(steps=steps)
@@ -60,7 +66,7 @@ def calculate_arima_prediction(data: pd.DataFrame, steps: int = 30) -> dict:
         }
     except Exception as e:
         st.error(f"Error in ARIMA prediction: {str(e)}")
-        return {}  # Return empty dict instead of None to match return type
+        return {}
 
 def calculate_trend_strength(data: pd.DataFrame) -> float:
     """Calculate the strength of the current trend."""
