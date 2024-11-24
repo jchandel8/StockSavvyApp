@@ -2,8 +2,7 @@ import pandas as pd
 import numpy as np
 import streamlit as st
 from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout
+from sklearn.linear_model import LinearRegression
 from utils.stock_data import is_crypto
 from utils.technical_analysis import (
     calculate_gap_and_go_signals,
@@ -13,7 +12,7 @@ from utils.technical_analysis import (
     calculate_mvrv_ratio
 )
 
-def calculate_lstm_prediction(data: pd.DataFrame, look_back: int = 60) -> dict:
+def calculate_prediction(data: pd.DataFrame, look_back: int = 60) -> dict:
     try:
         # Prepare data
         prices = data['Close'].values.reshape(-1, 1)
@@ -21,40 +20,28 @@ def calculate_lstm_prediction(data: pd.DataFrame, look_back: int = 60) -> dict:
         scaled_data = scaler.fit_transform(prices)
         
         # Prepare sequences
-        x_train, y_train = [], []
+        X, y = [], []
         for i in range(look_back, len(scaled_data)):
-            x_train.append(scaled_data[i-look_back:i, 0])
-            y_train.append(scaled_data[i, 0])
+            X.append(scaled_data[i-look_back:i, 0])
+            y.append(scaled_data[i, 0])
         
-        x_train, y_train = np.array(x_train), np.array(y_train)
-        x_train = np.reshape(x_train, (x_train.shape[0], x_train.shape[1], 1))
+        X, y = np.array(X), np.array(y)
         
-        # Build and train model
-        model = Sequential()
-        model.add(LSTM(units=50, return_sequences=True, input_shape=(look_back, 1)))
-        model.add(Dropout(0.2))
-        model.add(LSTM(units=50))
-        model.add(Dropout(0.2))
-        model.add(Dense(units=1))
-        
-        model.compile(optimizer='adam', loss='mean_squared_error')
-        model.fit(x_train, y_train, epochs=100, batch_size=32, verbose=0)
+        # Train model
+        model = LinearRegression()
+        model.fit(X, y)
         
         # Make prediction
-        x_test = []
-        x_test.append(scaled_data[-look_back:])
-        x_test = np.array(x_test)
-        x_test = np.reshape(x_test, (x_test.shape[0], x_test.shape[1], 1))
-        
-        predicted_price = model.predict(x_test)
-        predicted_price = scaler.inverse_transform(predicted_price)
+        last_sequence = scaled_data[-look_back:].reshape(1, -1)
+        predicted_scaled = model.predict(last_sequence)
+        predicted_price = scaler.inverse_transform(predicted_scaled.reshape(-1, 1))
         
         return {
-            'lstm_forecast': float(predicted_price[0][0]),
-            'confidence': 0.8
+            'forecast': float(predicted_price[0][0]),
+            'confidence': max(min(model.score(X, y), 1.0), 0.0)
         }
     except Exception as e:
-        st.error(f"Error in LSTM prediction: {str(e)}")
+        st.error(f"Error in prediction: {str(e)}")
         return {}
 
 def calculate_trend_strength(data: pd.DataFrame) -> float:
@@ -99,8 +86,8 @@ def predict_price_movement(data: pd.DataFrame, ticker: str) -> dict:
         last_price = data['Close'].iloc[-1]
         trend_strength = calculate_trend_strength(data)
         
-        # Get LSTM predictions
-        lstm_results = calculate_lstm_prediction(data)
+        # Get predictions
+        prediction_results = calculate_prediction(data)
         
         # Define timeframes
         timeframes = ['short_term', 'medium_term', 'long_term']
@@ -109,11 +96,11 @@ def predict_price_movement(data: pd.DataFrame, ticker: str) -> dict:
         for timeframe in timeframes:
             predictions[timeframe] = {
                 'timeframe': periods[timeframe],
-                'direction': 'UP' if lstm_results.get('lstm_forecast', last_price) > last_price else 'DOWN',
-                'confidence': lstm_results.get('confidence', 0.5),
-                'predicted_high': lstm_results.get('lstm_forecast', last_price) * 1.02,
-                'predicted_low': lstm_results.get('lstm_forecast', last_price) * 0.98,
-                'lstm_forecast': lstm_results.get('lstm_forecast', last_price)
+                'direction': 'UP' if prediction_results.get('forecast', last_price) > last_price else 'DOWN',
+                'confidence': prediction_results.get('confidence', 0.5),
+                'predicted_high': prediction_results.get('forecast', last_price) * 1.02,
+                'predicted_low': prediction_results.get('forecast', last_price) * 0.98,
+                'forecast': prediction_results.get('forecast', last_price)
             }
             
     except Exception as e:
