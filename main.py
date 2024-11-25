@@ -149,6 +149,27 @@ if ticker:
                         fig = create_backtest_chart(backtest_results['history'])
                         st.plotly_chart(fig, use_container_width=True)
                         
+                        # Display trades table
+                        if len(backtest_results['history']) > 0:
+                            trades_df = backtest_results['history'][backtest_results['history']['trade_taken']]
+                            
+                            # Calculate profit percentage
+                            trades_df['profit_percentage'] = (trades_df['trade_profit'] / trades_df['open_price']) * 100
+                            
+                            # Format the table data
+                            trades_table = pd.DataFrame({
+                                'Date': trades_df['date'],
+                                'Prediction': trades_df['predicted_direction'],
+                                'Opening Price': trades_df['open_price'].map('${:,.2f}'.format),
+                                'Entry Price': trades_df['open_price'].map('${:,.2f}'.format),
+                                'Exit Price': trades_df.apply(lambda x: '${:,.2f}'.format(x['high_price'] if x['predicted_direction'] == 'UP' else x['low_price']), axis=1),
+                                'Profit($)': trades_df['trade_profit'].map('${:,.2f}'.format),
+                                'Profit(%)': trades_df['profit_percentage'].map('{:,.2f}%'.format)
+                            })
+                            
+                            st.subheader("Trading History")
+                            st.dataframe(trades_table, use_container_width=True)
+                        
         else:
             st.error("No data available for this symbol.")
             
