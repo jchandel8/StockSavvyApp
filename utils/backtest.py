@@ -25,7 +25,14 @@ def backtest_prediction_model(df: pd.DataFrame, initial_investment: float) -> di
         if not prediction:
             continue
         
-        predicted_direction = 'UP' if prediction.get('forecast', 0) > df['Close'].iloc[i] else 'DOWN'
+        forecast = prediction.get('forecast', 0)
+        predicted_direction = 'UP' if forecast > df['Close'].iloc[i] else 'DOWN'
+        
+        # Calculate predicted high and low based on volatility
+        volatility = df['Close'].pct_change().std()
+        predicted_range = forecast * volatility
+        predicted_high = forecast + predicted_range
+        predicted_low = forecast - predicted_range
         
         # Simulate trade based on prediction
         trade_profit = 0
@@ -55,6 +62,8 @@ def backtest_prediction_model(df: pd.DataFrame, initial_investment: float) -> di
             'date': df.index[i+1],
             'portfolio_value': portfolio_value,
             'predicted_direction': predicted_direction,
+            'predicted_high': predicted_high,
+            'predicted_low': predicted_low,
             'open_price': next_day['Open'],
             'high_price': next_day['High'],
             'low_price': next_day['Low'],
