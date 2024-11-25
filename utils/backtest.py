@@ -4,13 +4,22 @@ import plotly.graph_objects as go
 from utils.prediction import calculate_prediction
 
 def backtest_prediction_model(df: pd.DataFrame, initial_investment: float) -> dict:
-    st.info("This backtest is based on the 1-day forecasts made by our model. For UP predictions, it simulates buying at open price and selling at the day's achieved high price if profitable. For DOWN predictions, it simulates shorting at open price and covering at the day's achieved low price if profitable.")
+    st.info("This backtest simulates realistic trading conditions including transaction costs, slippage, and risk management.")
+    
+    # Constants for trading simulation
+    TRANSACTION_COST = 0.001  # 0.1% per trade
+    SLIPPAGE = 0.001  # 0.1% slippage
+    MAX_POSITION_SIZE = 0.2  # Maximum 20% of portfolio per trade
+    STOP_LOSS = 0.02  # 2% stop loss
+    TAKE_PROFIT = 0.04  # 4% take profit
     
     history = []
     portfolio_value = initial_investment
     total_trades = 0
     profitable_trades = 0
     total_profit = 0
+    max_drawdown = 0
+    peak_value = initial_investment
     
     # Use sliding window for predictions
     window_size = 30
@@ -19,6 +28,7 @@ def backtest_prediction_model(df: pd.DataFrame, initial_investment: float) -> di
         # Get data for current and next day
         historical_data = df.iloc[:i]
         next_day = df.iloc[i+1]
+        current_day = df.iloc[i]
         
         # Get prediction for next day
         prediction = calculate_prediction(historical_data, timeframe='daily')
@@ -26,52 +36,103 @@ def backtest_prediction_model(df: pd.DataFrame, initial_investment: float) -> di
             continue
         
         forecast = prediction.get('forecast', 0)
-        predicted_direction = 'UP' if forecast > df['Close'].iloc[i] else 'DOWN'
+        confidence = prediction.get('confidence', 0)
         
-        # Calculate predicted high and low based on volatility
-        volatility = df['Close'].pct_change().std()
-        predicted_range = forecast * volatility
-        predicted_high = forecast + predicted_range
-        predicted_low = forecast - predicted_range
+        # Only trade if confidence is high enough
+        if confidence < 0.6:
+            continue
+            
+        predicted_direction = 'UP' if forecast > current_day['Close'] else 'DOWN'
+        
+        # Calculate position size based on confidence and portfolio value
+        position_size = min(MAX_POSITION_SIZE * confidence, MAX_POSITION_SIZE) * portfolio_value
+        
+        # Calculate entry price with slippage
+        entry_price = next_day['Open'] * (1 + SLIPPAGE) if predicted_direction == 'UP' else next_day['Open'] * (1 - SLIPPAGE)
+        
+        # Calculate stop loss and take profit levels
+        stop_loss_price = entry_price * (1 - STOP_LOSS) if predicted_direction == 'UP' else entry_price * (1 + STOP_LOSS)
+        take_profit_price = entry_price * (1 + TAKE_PROFIT) if predicted_direction == 'UP' else entry_price * (1 - TAKE_PROFIT)
         
         # Simulate trade based on prediction
         trade_profit = 0
         trade_taken = False
+        exit_price = entry_price  # Default to entry price
         
         if predicted_direction == 'UP':
-            # Long trade: Buy at open, sell at high if profitable
-            if next_day['High'] > next_day['Open']:
-                trade_profit = ((next_day['High'] - next_day['Open']) / next_day['Open']) * portfolio_value
+            # Long trade simulation with realistic exit conditions
+            shares = position_size / entry_price
+            transaction_cost = position_size * TRANSACTION_COST * 2  # Entry and exit costs
+            
+            # Check if stop loss was hit first
+            if next_day['Low'] <= stop_loss_price:
+                exit_price = stop_loss_price
+                trade_profit = (exit_price - entry_price) * shares - transaction_cost
+                trade_taken = True
+            # Check if take profit was hit
+            elif next_day['High'] >= take_profit_price:
+                exit_price = take_profit_price
+                trade_profit = (exit_price - entry_price) * shares - transaction_cost
+                trade_taken = True
+            # Otherwise, close at end of day
+            else:
+                exit_price = next_day['Close']
+                trade_profit = (exit_price - entry_price) * shares - transaction_cost
                 trade_taken = True
                 
         else:  # predicted_direction == 'DOWN'
-            # Short trade: Sell at open, buy at low if profitable
-            if next_day['Low'] < next_day['Open']:
-                trade_profit = ((next_day['Open'] - next_day['Low']) / next_day['Open']) * portfolio_value
+            # Short trade simulation with realistic exit conditions
+            shares = position_size / entry_price
+            transaction_cost = position_size * TRANSACTION_COST * 2  # Entry and exit costs
+            
+            # Check if stop loss was hit first
+            if next_day['High'] >= stop_loss_price:
+                exit_price = stop_loss_price
+                trade_profit = (entry_price - exit_price) * shares - transaction_cost
+                trade_taken = True
+            # Check if take profit was hit
+            elif next_day['Low'] <= take_profit_price:
+                exit_price = take_profit_price
+                trade_profit = (entry_price - exit_price) * shares - transaction_cost
+                trade_taken = True
+            # Otherwise, close at end of day
+            else:
+                exit_price = next_day['Close']
+                trade_profit = (entry_price - exit_price) * shares - transaction_cost
                 trade_taken = True
         
         if trade_taken:
             total_trades += 1
+            portfolio_value += trade_profit
+            
             if trade_profit > 0:
                 profitable_trades += 1
                 total_profit += trade_profit
-            portfolio_value += trade_profit
+            
+            # Update maximum drawdown
+            peak_value = max(peak_value, portfolio_value)
+            drawdown = (peak_value - portfolio_value) / peak_value
+            max_drawdown = max(max_drawdown, drawdown)
         
-        # Record history
+        # Record history with enhanced metrics
         history.append({
             'date': df.index[i+1],
             'portfolio_value': portfolio_value,
             'predicted_direction': predicted_direction,
-            'predicted_high': predicted_high,
-            'predicted_low': predicted_low,
-            'open_price': next_day['Open'],
-            'high_price': next_day['High'],
-            'low_price': next_day['Low'],
+            'prediction_confidence': confidence,
+            'position_size': position_size,
+            'entry_price': entry_price,
+            'exit_price': exit_price,
+            'stop_loss': stop_loss_price,
+            'take_profit': take_profit_price,
             'trade_profit': trade_profit if trade_taken else 0,
-            'trade_taken': trade_taken
+            'trade_taken': trade_taken,
+            'drawdown': drawdown if trade_taken else 0
         })
     
     win_rate = (profitable_trades / total_trades * 100) if total_trades > 0 else 0
+    avg_profit_per_trade = total_profit / total_trades if total_trades > 0 else 0
+    profit_factor = abs(total_profit / (initial_investment - portfolio_value)) if portfolio_value < initial_investment else float('inf')
     
     return {
         'final_value': portfolio_value,
@@ -80,6 +141,10 @@ def backtest_prediction_model(df: pd.DataFrame, initial_investment: float) -> di
         'profitable_trades': profitable_trades,
         'win_rate': win_rate,
         'accuracy': win_rate,
+        'max_drawdown': max_drawdown * 100,
+        'profit_factor': profit_factor,
+        'avg_profit_per_trade': avg_profit_per_trade,
+        'sharpe_ratio': (total_profit / initial_investment) / (df['Close'].pct_change().std() * (252 ** 0.5)) if total_trades > 0 else 0,
         'history': pd.DataFrame(history)
     }
 
