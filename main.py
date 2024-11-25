@@ -162,10 +162,10 @@ if ticker:
                                 'Prediction': trades_df['predicted_direction'],
                                 'Portfolio Value Before': trades_df['portfolio_value'].shift(1).fillna(initial_investment).map('${:,.2f}'.format),
                                 'Opening Price': trades_df['open_price'].map('${:,.2f}'.format),
-                                'Entry Price': trades_df['open_price'].map('${:,.2f}'.format),
-                                'Exit Price': trades_df.apply(lambda x: '${:,.2f}'.format(x['high_price'] if x['predicted_direction'] == 'UP' else x['low_price']), axis=1),
+                                'Entry Price': trades_df.apply(lambda x: '${:,.2f}'.format(x['open_price']), axis=1),
+                                'Exit Price': trades_df.apply(lambda x: '${:,.2f}'.format(x['close_price']), axis=1),
                                 'Profit($)': trades_df['trade_profit'].map('${:,.2f}'.format),
-                                'Profit(%)': trades_df['profit_percentage'].map('{:,.2f}%'.format),
+                                'Profit(%)': (trades_df['trade_profit'] / trades_df['position_size'] * 100).map('{:,.2f}%'.format),
                                 'Portfolio Value After': trades_df['portfolio_value'].map('${:,.2f}'.format)
                             })
                             

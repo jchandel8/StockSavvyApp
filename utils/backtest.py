@@ -114,20 +114,21 @@ def backtest_prediction_model(df: pd.DataFrame, initial_investment: float) -> di
             drawdown = (peak_value - portfolio_value) / peak_value
             max_drawdown = max(max_drawdown, drawdown)
         
-        # Record history with enhanced metrics
+        # Record history with proper price fields
         history.append({
             'date': df.index[i+1],
             'portfolio_value': portfolio_value,
             'predicted_direction': predicted_direction,
             'prediction_confidence': confidence,
+            'open_price': next_day['Open'],
+            'high_price': next_day['High'],
+            'low_price': next_day['Low'],
+            'close_price': next_day['Close'],
             'position_size': position_size,
             'entry_price': entry_price,
             'exit_price': exit_price,
-            'stop_loss': stop_loss_price,
-            'take_profit': take_profit_price,
             'trade_profit': trade_profit if trade_taken else 0,
-            'trade_taken': trade_taken,
-            'drawdown': drawdown if trade_taken else 0
+            'trade_taken': trade_taken
         })
     
     win_rate = (profitable_trades / total_trades * 100) if total_trades > 0 else 0
