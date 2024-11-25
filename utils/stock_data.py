@@ -54,11 +54,15 @@ def get_stock_data(ticker: str, period: str = "1y") -> pd.DataFrame:
     """Fetch stock/crypto data from Yahoo Finance with caching."""
     try:
         stock = yf.Ticker(ticker)
-        # Use different period for crypto
         if is_crypto(ticker):
-            df = stock.history(period='1mo')  # Use '1mo' instead of '1y' for crypto
+            df = stock.history(period='1mo')
         else:
             df = stock.history(period=period)
+            
+        if not df.empty:
+            from utils.technical_analysis import calculate_technical_indicators
+            df = calculate_technical_indicators(df)
+            
         return df
     except Exception as e:
         st.error(f"Error fetching data for {ticker}: {str(e)}")

@@ -17,4 +17,6 @@ dependencies = [
     "keras",
     "textblob",
     "python-dateutil",
+    "python-dotenv",
+    "ta",
 ]

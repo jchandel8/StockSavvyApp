@@ -1,19 +1,115 @@
 import pandas as pd
 import numpy as np
-from typing import Dict, Any
-import logging
-
-# Configure logging
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-import numpy as np
 import streamlit as st
 import logging
+from typing import Dict, Any
 
-# Configure logging
+# Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+def calculate_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
+    """Calculate technical indicators for the given dataframe."""
+    try:
+        # Calculate SMA
+        df['SMA_20'] = df['Close'].rolling(window=20).mean()
+        df['SMA_50'] = df['Close'].rolling(window=50).mean()
+        
+        # Calculate Bollinger Bands
+        df['BB_middle'] = df['Close'].rolling(window=20).mean()
+        df['BB_upper'] = df['BB_middle'] + (df['Close'].rolling(window=20).std() * 2)
+        df['BB_lower'] = df['BB_middle'] - (df['Close'].rolling(window=20).std() * 2)
+        
+        # Calculate RSI
+        delta = df['Close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        df['RSI'] = 100 - (100 / (1 + rs))
+        
+        # Calculate MACD
+        exp1 = df['Close'].ewm(span=12, adjust=False).mean()
+        exp2 = df['Close'].ewm(span=26, adjust=False).mean()
+        df['MACD'] = exp1 - exp2
+        df['MACD_Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
+        df['MACD_Hist'] = df['MACD'] - df['MACD_Signal']
+        
+        return df
+    except Exception as e:
+        logger.error(f"Error calculating technical indicators: {str(e)}")
+        return df
+
+def generate_signals(df: pd.DataFrame) -> Dict[str, Any]:
+    """Generate trading signals based on technical indicators."""
+    if df is None or df.empty:
+        return {'status': 'no_data'}
+        
+    try:
+        signals = {
+            'buy_signals': [],
+            'sell_signals': [],
+            'status': 'loading'
+        }
+        
+        if len(df) < 50:
+            signals['status'] = 'missing_data'
+            return signals
+            
+        # Get latest values for signal generation
+        latest_values = {
+            'close_current': df['Close'].iloc[-1],
+            'close_prev': df['Close'].iloc[-2],
+            'rsi_current': df['RSI'].iloc[-1],
+            'macd_current': df['MACD'].iloc[-1],
+            'macd_signal_current': df['MACD_Signal'].iloc[-1],
+            'macd_hist_current': df['MACD'].iloc[-1] - df['MACD_Signal'].iloc[-1],
+            'macd_hist_prev': df['MACD'].iloc[-2] - df['MACD_Signal'].iloc[-2],
+            'sma20_current': df['SMA_20'].iloc[-1],
+            'sma50_current': df['SMA_50'].iloc[-1],
+            'sma20_prev': df['SMA_20'].iloc[-2],
+            'sma50_prev': df['SMA_50'].iloc[-2],
+            'bb_upper': df['BB_upper'].iloc[-1],
+            'bb_lower': df['BB_lower'].iloc[-1]
+        }
+        
+        # RSI Signals
+        logger.info("Checking RSI signals")
+        if latest_values['rsi_current'] < 30:
+            signals['buy_signals'].append('RSI indicates oversold')
+            logger.info("RSI oversold signal generated")
+        elif latest_values['rsi_current'] > 70:
+            signals['sell_signals'].append('RSI indicates overbought')
+            logger.info("RSI overbought signal generated")
+        
+        # MACD Signals
+        logger.info("Checking MACD signals")
+        if latest_values['macd_hist_current'] > 0 and latest_values['macd_hist_prev'] <= 0:
+            signals['buy_signals'].append('MACD bullish crossover')
+            logger.info("MACD bullish crossover signal generated")
+        elif latest_values['macd_hist_current'] < 0 and latest_values['macd_hist_prev'] >= 0:
+            signals['sell_signals'].append('MACD bearish crossover')
+            logger.info("MACD bearish crossover signal generated")
+        
+        # Moving Average Signals
+        logger.info("Checking Moving Average signals")
+        if latest_values['close_current'] > latest_values['sma50_current'] and latest_values['sma20_current'] > latest_values['sma50_current']:
+            signals['buy_signals'].append('Price above moving averages')
+        elif latest_values['close_current'] < latest_values['sma50_current'] and latest_values['sma20_current'] < latest_values['sma50_current']:
+            signals['sell_signals'].append('Price below moving averages')
+        
+        # Bollinger Bands Signals
+        if latest_values['close_current'] <= latest_values['bb_lower']:
+            signals['buy_signals'].append('Price at Bollinger Band support')
+        elif latest_values['close_current'] >= latest_values['bb_upper']:
+            signals['sell_signals'].append('Price at Bollinger Band resistance')
+        
+        signals['status'] = 'complete'
+        return signals
+        
+    except Exception as e:
+        logger.error(f"Error generating signals: {str(e)}")
+        signals['status'] = 'error'
+        return signals
 
 def calculate_rsi(data: pd.DataFrame, periods: int = 14) -> pd.Series:
     """Calculate RSI indicator."""
@@ -270,6 +366,58 @@ def calculate_mvrv_ratio(df: pd.DataFrame) -> pd.Series:
         return pd.Series(index=df.index if df is not None else None)
 
 def calculate_gap_and_go_signals(df: pd.DataFrame) -> pd.Series:
+    """Calculate Gap and Go signals."""
+    try:
+        if df is None or df.empty or not all(col in df.columns for col in ['Close', 'Open']):
+            return pd.Series(index=df.index if df is not None else None)
+        
+        gaps = df['Open'] > df['Close'].shift(1)
+        return gaps & (df['Close'] > df['Open'])  # Gap up and close higher
+    except Exception as e:
+        logger.error(f"Error calculating Gap and Go signals: {str(e)}")
+        return pd.Series(index=df.index if df is not None else None)
+
+def calculate_trend_continuation(df: pd.DataFrame) -> pd.Series:
+    """Calculate trend continuation signals."""
+    try:
+        if df is None or df.empty:
+            return pd.Series(index=df.index if df is not None else None)
+        
+        sma20 = df['Close'].rolling(window=20).mean()
+        sma50 = df['Close'].rolling(window=50).mean()
+        return (sma20 > sma20.shift(1)) & (sma50 > sma50.shift(1))
+    except Exception as e:
+        logger.error(f"Error calculating trend continuation: {str(e)}")
+        return pd.Series(index=df.index if df is not None else None)
+
+def calculate_fibonacci_signals(df: pd.DataFrame) -> pd.Series:
+    """Calculate Fibonacci retracement signals."""
+    try:
+        if df is None or df.empty:
+            return pd.Series(index=df.index if df is not None else None)
+        
+        high = df['High'].rolling(window=20).max()
+        low = df['Low'].rolling(window=20).min()
+        range_price = high - low
+        fib_382 = high - (range_price * 0.382)
+        return df['Close'] >= fib_382
+    except Exception as e:
+        logger.error(f"Error calculating Fibonacci signals: {str(e)}")
+        return pd.Series(index=df.index if df is not None else None)
+
+def calculate_weekly_trendline_break(df: pd.DataFrame) -> pd.Series:
+    """Calculate weekly trendline break signals."""
+    try:
+        if df is None or df.empty:
+            return pd.Series(index=df.index if df is not None else None)
+        
+        weekly_high = df['High'].resample('W').max()
+        weekly_low = df['Low'].resample('W').min()
+        trendline = weekly_high.rolling(window=4).mean()
+        return df['Close'] > trendline.reindex(df.index).fillna(method='ffill')
+    except Exception as e:
+        logger.error(f"Error calculating weekly trendline break: {str(e)}")
+        return pd.Series(index=df.index if df is not None else None)
     """Calculate Gap and Go signals."""
     try:
         if df is None or df.empty or not all(col in df.columns for col in ['Close', 'Open']):

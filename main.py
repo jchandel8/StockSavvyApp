@@ -17,9 +17,17 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Initialize session state if not already done
+if 'initialized' not in st.session_state:
+    st.session_state.initialized = True
+    st.session_state.last_error = None
+
 # Apply custom CSS
-with open('styles/style.css') as f:
-    st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+try:
+    with open('styles/style.css') as f:
+        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+except Exception as e:
+    st.warning(f"Custom styling could not be loaded: {str(e)}")
 
 # Title and search
 st.title("Stock Analysis Platform")

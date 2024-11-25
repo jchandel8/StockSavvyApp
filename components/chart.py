@@ -18,36 +18,39 @@ def create_stock_chart(df, indicators):
         name='OHLC'
     ), row=1, col=1)
 
-    # Add Moving Averages
-    fig.add_trace(go.Scatter(
-        x=df.index,
-        y=df['SMA_20'],
-        name='SMA 20',
-        line=dict(color='blue', width=1)
-    ), row=1, col=1)
+    # Add Moving Averages if available
+    if 'SMA_20' in df.columns:
+        fig.add_trace(go.Scatter(
+            x=df.index,
+            y=df['SMA_20'],
+            name='SMA 20',
+            line=dict(color='blue', width=1)
+        ), row=1, col=1)
 
-    fig.add_trace(go.Scatter(
-        x=df.index,
-        y=df['SMA_50'],
-        name='SMA 50',
-        line=dict(color='orange', width=1)
-    ), row=1, col=1)
+    if 'SMA_50' in df.columns:
+        fig.add_trace(go.Scatter(
+            x=df.index,
+            y=df['SMA_50'],
+            name='SMA 50',
+            line=dict(color='orange', width=1)
+        ), row=1, col=1)
 
-    # Add Bollinger Bands
-    fig.add_trace(go.Scatter(
-        x=df.index,
-        y=df['BB_Upper'],
-        name='BB Upper',
-        line=dict(color='gray', width=1, dash='dash')
-    ), row=1, col=1)
+    # Add Bollinger Bands if available
+    if all(col in df.columns for col in ['BB_Upper', 'BB_Lower']):
+        fig.add_trace(go.Scatter(
+            x=df.index,
+            y=df['BB_Upper'],
+            name='BB Upper',
+            line=dict(color='gray', width=1, dash='dash')
+        ), row=1, col=1)
 
-    fig.add_trace(go.Scatter(
-        x=df.index,
-        y=df['BB_Lower'],
-        name='BB Lower',
-        line=dict(color='gray', width=1, dash='dash'),
-        fill='tonexty'
-    ), row=1, col=1)
+        fig.add_trace(go.Scatter(
+            x=df.index,
+            y=df['BB_Lower'],
+            name='BB Lower',
+            line=dict(color='gray', width=1, dash='dash'),
+            fill='tonexty'
+        ), row=1, col=1)
 
     # Volume chart
     fig.add_trace(go.Bar(
@@ -57,7 +60,6 @@ def create_stock_chart(df, indicators):
         marker_color='rgb(158,202,225)'
     ), row=2, col=1)
 
-    # Update layout
     fig.update_layout(
         title_text="Stock Price Chart",
         xaxis_rangeslider_visible=False,
