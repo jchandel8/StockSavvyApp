@@ -190,81 +190,10 @@ def search_stocks(query: str) -> list:
         if not query or len(query) < 2:
             return []
             
+        st.session_state['last_error'] = None  # Clear any previous errors
         results = []
         
-        # Enhanced cryptocurrency search
-        try:
-            # Fetch top 100 cryptocurrencies
-            response = requests.get(
-                "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest",
-                headers={'X-CMC_PRO_API_KEY': st.secrets["COINMARKETCAP_API_KEY"]},
-                params={'start': 1, 'limit': 100, 'convert': 'USD'}
-            )
-            crypto_data = response.json()
-            
-            # Get available exchanges
-            exchanges_response = requests.get(
-                "https://pro-api.coinmarketcap.com/v1/exchange/map",
-                headers={'X-CMC_PRO_API_KEY': st.secrets["COINMARKETCAP_API_KEY"]}
-            )
-            exchanges = exchanges_response.json().get('data', [])
-            exchange_names = [ex['name'] for ex in exchanges]
-            
-            for crypto in crypto_data['data']:
-                symbol = f"{crypto['symbol']}-USD"
-                # Apply fuzzy matching to both symbol and name
-                if (fuzzy_match(query.upper(), crypto['symbol']) or 
-                    fuzzy_match(query.lower(), crypto['name'].lower())):
-                    
-                    # Get trading pairs
-                    pairs = [
-                        f"{crypto['symbol']}/USD",
-                        f"{crypto['symbol']}/USDT",
-                        f"{crypto['symbol']}/BTC",
-                        f"{crypto['symbol']}/ETH"
-                    ]
-                    
-                    # Select random exchanges (simulating available exchanges)
-                    import random
-                    available_exchanges = random.sample(exchange_names, min(5, len(exchange_names)))
-                    
-                    results.append({
-                        'symbol': symbol,
-                        'name': crypto['name'],
-                        'exchange': 'Multiple',
-                        'exchanges': available_exchanges,
-                        'trading_pairs': pairs,
-                        'type': 'crypto',
-                        'market_cap': crypto['quote']['USD']['market_cap'],
-                        'volume_24h': crypto['quote']['USD']['volume_24h'],
-                        'market_dominance': crypto['quote']['USD'].get('market_cap_dominance', 0)
-                    })
-            
-        except Exception as e:
-            st.error(f"Error searching cryptocurrencies: {str(e)}")
-        
-        # Search using yfinance as fallback
-        tickers = yf.Tickers(query)
-        for ticker in tickers.tickers:
-            try:
-                info = ticker.info
-                if 'longName' in info:
-                    symbol = info.get('symbol', '')
-                    is_crypto_symbol = is_crypto(symbol)
-                    if is_crypto_symbol:
-                        symbol = format_crypto_symbol(symbol)
-                    results.append({
-                        'symbol': symbol,
-                        'name': info.get('longName', ''),
-                        'exchange': 'Crypto' if is_crypto_symbol else info.get('exchange', 'Unknown'),
-                        'type': 'crypto' if is_crypto_symbol else 'stock',
-                        'market_cap': info.get('marketCap', 0),
-                        'volume_24h': info.get('volume24Hr', 0) if is_crypto_symbol else None
-                    })
-            except:
-                continue
-                
-        # Also search Yahoo Finance API
+        # First try Yahoo Finance API
         try:
             url = "https://query2.finance.yahoo.com/v1/finance/search"
             params = {'q': query, 'quotesCount': 20, 'newsCount': 0}
@@ -273,20 +202,65 @@ def search_stocks(query: str) -> list:
             
             for quote in data.get('quotes', []):
                 symbol = quote.get('symbol', '')
-                is_crypto_symbol = is_crypto(symbol)
-                if is_crypto_symbol:
-                    symbol = format_crypto_symbol(symbol)
-                if is_crypto_symbol or not any(r['symbol'] == symbol for r in results):
+                if symbol:  # Only add if symbol exists
+                    is_crypto_symbol = is_crypto(symbol)
+                    if is_crypto_symbol:
+                        symbol = format_crypto_symbol(symbol)
                     results.append({
                         'symbol': symbol,
-                        'name': quote.get('longname', quote.get('shortname', '')),
-                        'exchange': 'Crypto' if is_crypto_symbol else quote.get('exchange', 'Unknown'),
-                        'type': 'crypto' if is_crypto_symbol else 'stock',
-                        'market_cap': quote.get('marketCap', 0),
-                        'volume_24h': quote.get('volume24Hr', 0) if is_crypto_symbol else None
+                        'name': quote.get('longname', quote.get('shortname', symbol)),
+                        'exchange': quote.get('exchange', 'Unknown'),
+                        'type': 'crypto' if is_crypto_symbol else 'stock'
                     })
-        except:
-            pass
+        except Exception as e:
+            st.session_state['last_error'] = f"Yahoo Finance search error: {str(e)}"
+            
+        # If no results, try direct symbol match
+        if not results:
+            try:
+                stock = yf.Ticker(query.upper())
+                info = stock.info
+                if 'symbol' in info:
+                    is_crypto_symbol = is_crypto(info['symbol'])
+                    symbol = format_crypto_symbol(info['symbol']) if is_crypto_symbol else info['symbol']
+                    results.append({
+                        'symbol': symbol,
+                        'name': info.get('longName', symbol),
+                        'exchange': info.get('exchange', 'Unknown'),
+                        'type': 'crypto' if is_crypto_symbol else 'stock'
+                    })
+            except Exception as e:
+                if not st.session_state.get('last_error'):
+                    st.session_state['last_error'] = f"Symbol lookup error: {str(e)}"
+        
+        # Try cryptocurrency search if still no results or query looks like crypto
+        if not results or any(q in query.upper() for q in ['BTC', 'ETH', 'USDT', 'USD']):
+            try:
+                response = requests.get(
+                    "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest",
+                    headers={'X-CMC_PRO_API_KEY': st.secrets["COINMARKETCAP_API_KEY"]},
+                    params={'start': 1, 'limit': 100, 'convert': 'USD'}
+                )
+                crypto_data = response.json()
+                
+                for crypto in crypto_data.get('data', []):
+                    if fuzzy_match(query.upper(), crypto['symbol']) or fuzzy_match(query.lower(), crypto['name'].lower()):
+                        symbol = f"{crypto['symbol']}-USD"
+                        results.append({
+                            'symbol': symbol,
+                            'name': crypto['name'],
+                            'exchange': 'Crypto',
+                            'type': 'crypto'
+                        })
+            except Exception as e:
+                if not st.session_state.get('last_error'):
+                    st.session_state['last_error'] = f"Cryptocurrency search error: {str(e)}"
+        
+        return results[:10]  # Limit to top 10 results
+        
+    except Exception as e:
+        st.error(f"Search error: {str(e)}")
+        return []
             
         # Remove duplicates and sort by relevance
         unique_results = []

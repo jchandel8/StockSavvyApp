@@ -29,14 +29,18 @@ st.markdown("### Advanced Technical & Fundamental Analysis")
 search_query = st.text_input("Search stocks and crypto", value="", placeholder="Enter symbol (e.g., AAPL) or name")
 
 if search_query:
-    search_results = search_stocks(search_query)
-    if search_results:
-        options = [f"{r['symbol']} - {r['name']} ({r['exchange']})" for r in search_results]
-        selected = st.selectbox("Select Asset", options)
-        ticker = selected.split(' - ')[0] if selected else None
-    else:
-        st.warning("No matching assets found.")
-        ticker = None
+    with st.spinner('Searching...'):
+        search_results = search_stocks(search_query)
+        if search_results:
+            options = [f"{r['symbol']} - {r['name']} ({r['exchange']})" for r in search_results]
+            selected = st.selectbox("Select Asset", options)
+            ticker = selected.split(' - ')[0] if selected else None
+        else:
+            if st.session_state.get('last_error'):
+                st.error(st.session_state['last_error'])
+            else:
+                st.warning("No matching assets found. Try entering a valid stock symbol (e.g., AAPL) or cryptocurrency (e.g., BTC-USD)")
+            ticker = None
 else:
     ticker = None
 
