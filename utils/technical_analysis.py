@@ -370,9 +370,15 @@ def calculate_gap_and_go_signals(df: pd.DataFrame) -> pd.Series:
     try:
         if df is None or df.empty or not all(col in df.columns for col in ['Close', 'Open']):
             return pd.Series(index=df.index if df is not None else None)
+            
+        # Calculate price gaps
+        gaps = df['Open'] - df['Close'].shift(1)
+        gap_threshold = df['Close'].rolling(window=20).std() * 1.5
         
-        gaps = df['Open'] > df['Close'].shift(1)
-        return gaps & (df['Close'] > df['Open'])  # Gap up and close higher
+        # Identify significant gaps
+        gap_signals = (abs(gaps) > gap_threshold) & (df['Close'] > df['Open'])
+        
+        return gap_signals
     except Exception as e:
         logger.error(f"Error calculating Gap and Go signals: {str(e)}")
         return pd.Series(index=df.index if df is not None else None)
@@ -382,10 +388,22 @@ def calculate_trend_continuation(df: pd.DataFrame) -> pd.Series:
     try:
         if df is None or df.empty:
             return pd.Series(index=df.index if df is not None else None)
-        
+            
+        # Calculate trending conditions
         sma20 = df['Close'].rolling(window=20).mean()
         sma50 = df['Close'].rolling(window=50).mean()
-        return (sma20 > sma20.shift(1)) & (sma50 > sma50.shift(1))
+        
+        # Price above both MAs and 20 MA above 50 MA indicates uptrend
+        uptrend = (df['Close'] > sma20) & (sma20 > sma50)
+        
+        # Volume confirmation
+        volume_increase = df['Volume'] > df['Volume'].rolling(window=20).mean()
+        
+        # Combine signals
+        trend_continuation = uptrend & volume_increase
+        
+        return trend_continuation
+        
     except Exception as e:
         logger.error(f"Error calculating trend continuation: {str(e)}")
         return pd.Series(index=df.index if df is not None else None)
@@ -395,77 +413,155 @@ def calculate_fibonacci_signals(df: pd.DataFrame) -> pd.Series:
     try:
         if df is None or df.empty:
             return pd.Series(index=df.index if df is not None else None)
+            
+        signals = pd.Series(False, index=df.index)
         
-        high = df['High'].rolling(window=20).max()
-        low = df['Low'].rolling(window=20).min()
-        range_price = high - low
-        fib_382 = high - (range_price * 0.382)
-        return df['Close'] >= fib_382
+        # Calculate Fibonacci levels
+        window = 20
+        for i in range(window, len(df)):
+            window_data = df.iloc[i-window:i]
+            high = window_data['High'].max()
+            low = window_data['Low'].min()
+            diff = high - low
+            
+            # Fibonacci levels
+            fib_382 = high - diff * 0.382
+            fib_618 = high - diff * 0.618
+            
+            # Generate signal when price bounces from Fibonacci levels
+            current_price = df['Close'].iloc[i]
+            if (fib_382 * 0.99 <= current_price <= fib_382 * 1.01) or \
+               (fib_618 * 0.99 <= current_price <= fib_618 * 1.01):
+                signals.iloc[i] = True
+                
+        return signals
+        
     except Exception as e:
         logger.error(f"Error calculating Fibonacci signals: {str(e)}")
         return pd.Series(index=df.index if df is not None else None)
 
 def calculate_weekly_trendline_break(df: pd.DataFrame) -> pd.Series:
-    """Calculate weekly trendline break signals."""
+    """Calculate weekly trendline breakout signals."""
     try:
         if df is None or df.empty:
             return pd.Series(index=df.index if df is not None else None)
-        
-        weekly_high = df['High'].resample('W').max()
-        weekly_low = df['Low'].resample('W').min()
-        trendline = weekly_high.rolling(window=4).mean()
-        return df['Close'] > trendline.reindex(df.index).fillna(method='ffill')
-    except Exception as e:
-        logger.error(f"Error calculating weekly trendline break: {str(e)}")
-        return pd.Series(index=df.index if df is not None else None)
-    """Calculate Gap and Go signals."""
-    try:
-        if df is None or df.empty or not all(col in df.columns for col in ['Close', 'Open']):
-            logger.error("Invalid data for Gap and Go calculation")
-            return pd.Series(False, index=df.index if df is not None else None)
             
-        return (df['Close'] > df['Open']) & (df['Open'].shift(1) > df['Close'].shift(1))
+        signals = pd.Series(False, index=df.index)
+        
+        # Calculate weekly high and low points
+        df['Week'] = df.index.isocalendar().week
+        weekly_highs = df.groupby('Week')['High'].max()
+        weekly_lows = df.groupby('Week')['Low'].min()
+        
+        # Look for breakouts from previous week's range
+        for i in range(1, len(df)):
+            current_week = df.index[i].isocalendar().week
+            prev_week = df.index[i-1].isocalendar().week
+            
+            if current_week != prev_week:
+                prev_high = weekly_highs[prev_week]
+                prev_low = weekly_lows[prev_week]
+                
+                # Breakout signal
+                if df['Close'].iloc[i] > prev_high * 1.02:  # 2% breakout threshold
+                    signals.iloc[i] = True
+                    
+        return signals
+        
+    except Exception as e:
+        logger.error(f"Error calculating weekly trendline breaks: {str(e)}")
+        return pd.Series(index=df.index if df is not None else None)
     except Exception as e:
         logger.error(f"Error calculating Gap and Go signals: {str(e)}")
-        return pd.Series(False, index=df.index if df is not None else None)
+        return pd.Series(index=df.index if df is not None else None)
 
 def calculate_trend_continuation(df: pd.DataFrame) -> pd.Series:
-    """Calculate Trend Continuation signals."""
+    """Calculate trend continuation signals."""
     try:
         if df is None or df.empty or 'Close' not in df.columns:
             logger.error("Invalid data for Trend Continuation calculation")
             return pd.Series(False, index=df.index if df is not None else None)
             
-        sma5 = df['Close'].rolling(window=5).mean()
-        sma10 = df['Close'].rolling(window=10).mean()
-        return sma5 > sma10
+        # Calculate trending conditions using both short and long-term MAs
+        sma20 = df['Close'].rolling(window=20).mean()
+        sma50 = df['Close'].rolling(window=50).mean()
+        
+        # Price above both MAs and 20 MA above 50 MA indicates uptrend
+        uptrend = (df['Close'] > sma20) & (sma20 > sma50)
+        
+        # Volume confirmation
+        volume_increase = df['Volume'] > df['Volume'].rolling(window=20).mean()
+        
+        # Combine signals
+        trend_continuation = uptrend & volume_increase
+        
+        return trend_continuation
+        
     except Exception as e:
-        logger.error(f"Error calculating Trend Continuation signals: {str(e)}")
+        logger.error(f"Error calculating trend continuation: {str(e)}")
         return pd.Series(False, index=df.index if df is not None else None)
 
 def calculate_fibonacci_signals(df: pd.DataFrame) -> pd.Series:
-    """Calculate Fibonacci Retracement signals."""
+    """Calculate Fibonacci retracement signals."""
     try:
-        if df is None or df.empty or not all(col in df.columns for col in ['High', 'Low']):
+        if df is None or df.empty or not all(col in df.columns for col in ['High', 'Low', 'Close']):
             logger.error("Invalid data for Fibonacci signals calculation")
             return pd.Series(False, index=df.index if df is not None else None)
             
-        high_10d = df['High'].rolling(window=10).max()
-        low_10d = df['Low'].rolling(window=10).min()
-        return (df['High'] > high_10d.shift(1)) & (df['Low'] < low_10d.shift(1))
+        signals = pd.Series(False, index=df.index)
+        
+        # Calculate Fibonacci levels with a 20-day window
+        window = 20
+        for i in range(window, len(df)):
+            window_data = df.iloc[i-window:i]
+            high = window_data['High'].max()
+            low = window_data['Low'].min()
+            diff = high - low
+            
+            # Key Fibonacci levels
+            fib_382 = high - diff * 0.382  # 38.2% retracement
+            fib_618 = high - diff * 0.618  # 61.8% retracement
+            
+            # Generate signal when price bounces from Fibonacci levels
+            current_price = df['Close'].iloc[i]
+            if (fib_382 * 0.99 <= current_price <= fib_382 * 1.01) or \
+               (fib_618 * 0.99 <= current_price <= fib_618 * 1.01):
+                signals.iloc[i] = True
+                
+        return signals
+        
     except Exception as e:
         logger.error(f"Error calculating Fibonacci signals: {str(e)}")
         return pd.Series(False, index=df.index if df is not None else None)
 
 def calculate_weekly_trendline_break(df: pd.DataFrame) -> pd.Series:
-    """Calculate Weekly Trendline Break signals."""
+    """Calculate weekly trendline breakout signals."""
     try:
-        if df is None or df.empty or 'Close' not in df.columns:
+        if df is None or df.empty or not all(col in df.columns for col in ['High', 'Low', 'Close']):
             logger.error("Invalid data for Weekly Trendline Break calculation")
             return pd.Series(False, index=df.index if df is not None else None)
             
-        ema50 = df['Close'].ewm(span=50, adjust=False).mean()
-        return (df['Close'] > ema50) & (df['Close'].shift(1) <= ema50.shift(1))
+        signals = pd.Series(False, index=df.index)
+        
+        # Calculate weekly high and low points
+        df['Week'] = df.index.isocalendar().week
+        weekly_highs = df.groupby('Week')['High'].max()
+        weekly_lows = df.groupby('Week')['Low'].min()
+        
+        # Look for breakouts from previous week's range
+        for i in range(1, len(df)):
+            current_week = df.index[i].isocalendar().week
+            prev_week = df.index[i-1].isocalendar().week
+            
+            if current_week != prev_week:
+                prev_high = weekly_highs[prev_week]
+                
+                # Breakout signal with 2% threshold
+                if df['Close'].iloc[i] > prev_high * 1.02:
+                    signals.iloc[i] = True
+                    
+        return signals
+        
     except Exception as e:
-        logger.error(f"Error calculating Weekly Trendline Break signals: {str(e)}")
+        logger.error(f"Error calculating weekly trendline breaks: {str(e)}")
         return pd.Series(False, index=df.index if df is not None else None)
