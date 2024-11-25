@@ -1,38 +1,10 @@
 import streamlit as st
 import pandas as pd
-from utils.stock_data import get_stock_data, get_stock_info, search_stocks, is_crypto
-from utils.technical_analysis import calculate_indicators, generate_signals
-from utils.fundamental_analysis import get_fundamental_metrics, analyze_fundamentals, format_market_cap, format_number
-
-def get_direction_indicator(direction: str) -> str:
-    colors = {
-        'UP': '#22c55e',  # Green
-        'DOWN': '#ef4444',  # Red
-        'NEUTRAL': '#6b7280'  # Gray
-    }
-    return f'''
-        <div style="display: inline-flex; align-items: center; gap: 8px;">
-            <div style="
-                width: 10px;
-                height: 10px;
-                background: {colors[direction]};
-                border-radius: 50%;
-                box-shadow: 0 0 4px {colors[direction]};
-                animation: pulse 2s infinite;
-            "></div>
-            <span>{direction}</span>
-            <style>
-                @keyframes pulse {{
-                    0% {{ box-shadow: 0 0 0 0 {colors[direction]}66; }}
-                    70% {{ box-shadow: 0 0 0 6px {colors[direction]}00; }}
-                    100% {{ box-shadow: 0 0 0 0 {colors[direction]}00; }}
-                }}
-            </style>
-        </div>
-    '''
-# Imports are already defined above
-from utils.news_service import get_news, format_news_sentiment
+from utils.stock_data import get_stock_data, get_stock_info, search_stocks, is_crypto, format_crypto_symbol
+from utils.technical_analysis import generate_signals
+from utils.fundamental_analysis import get_fundamental_metrics, analyze_fundamentals
 from utils.prediction import get_prediction
+from utils.news_service import get_news, format_news_sentiment
 from utils.backtest import backtest_prediction_model, create_backtest_chart
 from components.chart import create_stock_chart
 from components.signals import display_signals, display_technical_summary
@@ -41,182 +13,132 @@ from components.signals import display_signals, display_technical_summary
 st.set_page_config(
     page_title="Stock Analysis Platform",
     page_icon="📈",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# Load custom CSS
+# Apply custom CSS
 with open('styles/style.css') as f:
     st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
 # Title and search
 st.title("Stock Analysis Platform")
+st.markdown("### Advanced Technical & Fundamental Analysis")
 
-# Create placeholder for search input
-search_container = st.container()
-search_input = search_container.empty()
+# Create search box with autocomplete
+search_query = st.text_input("Search stocks and crypto", value="", placeholder="Enter symbol (e.g., AAPL) or name")
 
-# Search box with auto-complete
-search_query = search_input.text_input("Search for a stock", value="", key="stock_search")
-stock_suggestions = search_stocks(search_query)
-
-# Show real-time suggestions
-if stock_suggestions and search_query:
-    suggestion_container = st.container()
-    with suggestion_container:
-        for stock in stock_suggestions:
-            if st.button(f"{stock['name']} ({stock['symbol']}) - {stock['exchange']}", key=f"btn_{stock['symbol']}"):
-                search_query = stock['symbol']
-                ticker = stock['symbol']
-                break
-    ticker = search_query
+if search_query:
+    search_results = search_stocks(search_query)
+    if search_results:
+        options = [f"{r['symbol']} - {r['name']} ({r['exchange']})" for r in search_results]
+        selected = st.selectbox("Select Asset", options)
+        ticker = selected.split(' - ')[0] if selected else None
+    else:
+        st.warning("No matching assets found.")
+        ticker = None
 else:
-    ticker = search_query
+    ticker = None
 
 if ticker:
-    # Load data
-    df = get_stock_data(ticker)
-    if not df.empty:
+    try:
+        # Format crypto symbols correctly
+        if is_crypto(ticker):
+            ticker = format_crypto_symbol(ticker)
+            
+        # Get stock/crypto data and info
+        df = get_stock_data(ticker)
         info = get_stock_info(ticker)
-        st.header(f"{info['name']} ({ticker})")
         
-        # Stock price and info
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Current Price", f"${df['Close'].iloc[-1]:.2f}", 
-                     f"{((df['Close'].iloc[-1] - df['Close'].iloc[-2])/df['Close'].iloc[-2]*100):.2f}%")
-        with col2:
-            st.metric("Market Cap", format_market_cap(info['market_cap']))
-        with col3:
-            if info.get('type') == 'crypto':
-                st.metric("24h Volume", format_market_cap(info.get('volume_24h', 0)))
-            else:
-                st.metric("Sector", info.get('sector', 'N/A'))
-        
-        # Technical Analysis
-        st.subheader("Technical Analysis")
-        is_crypto = is_crypto(ticker)
-        df = calculate_indicators(df, is_crypto=is_crypto)
-        
-        if is_crypto:
-            # Add crypto-specific metrics
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("24h Volume", format_market_cap(info.get('volume_24h', 0)))
-            with col2:
-                st.metric("24h Change", f"{info.get('price_change_24h', 0):.2f}%")
-            with col3:
-                st.metric("Circulating Supply", format_number(info.get('circulating_supply', 0)))
-            with col4:
-                st.metric("Market Dominance", f"{info.get('market_dominance', 0):.2f}%")
-        
-        fig = create_stock_chart(df, None)
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Trading Signals and Predictions
-        signals = generate_signals(df)
-        display_signals(signals)
-        display_technical_summary(df)
-        
-        # Price Predictions section
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            st.subheader("Price Predictions")
-        with col2:
-            if st.button("Backtest Prediction Model"):
-                st.session_state.show_backtest = True
-
-        predictions = get_prediction(df, ticker)
-        
-        if st.session_state.get('show_backtest', False):
-            st.subheader("Prediction Model Backtest")
-            initial_investment = st.number_input("Initial Investment ($)", min_value=100, value=1000, step=100)
+        if not df.empty:
+            # Display asset info header
+            st.header(info.get('name', ticker))
             
-            # Calculate backtest results
-            backtest_results = backtest_prediction_model(df, initial_investment)
-            
-            # Display backtest results
+            # Layout columns for metrics
             col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Final Portfolio Value", f"${backtest_results['final_value']:.2f}")
-                st.metric("Total Return", f"{backtest_results['total_return']:.2f}%")
-            with col2:
-                st.metric("Total Trades", str(backtest_results['total_trades']))
-                st.metric("Win Rate", f"{backtest_results['win_rate']:.2f}%")
-            with col3:
-                st.metric("Prediction Accuracy", f"{backtest_results['accuracy']:.2f}%")
-                roi_per_trade = backtest_results['total_return'] / backtest_results['total_trades'] if backtest_results['total_trades'] > 0 else 0
-                st.metric("Avg ROI per Trade", f"{roi_per_trade:.2f}%")
             
-            # Show backtest chart
-            st.plotly_chart(create_backtest_chart(backtest_results['history']), use_container_width=True)
-        
-        timeframe_tabs = st.tabs(['Daily', 'Short-term', 'Medium-term', 'Long-term'])
-        
-        for tab, (timeframe, pred) in zip(timeframe_tabs, predictions.items()):
-            with tab:
-                st.write(f"**{pred['timeframe']} Forecast**")
-                pred_cols = st.columns(4)
-                
-                with pred_cols[0]:
-                    st.markdown(get_direction_indicator(pred['direction']), unsafe_allow_html=True)
-                
-                with pred_cols[1]:
-                    st.metric("Confidence", f"{pred['confidence']*100:.1f}%")
-                
-                with pred_cols[2]:
-                    if pred['predicted_high']:
-                        st.metric("Predicted High", f"${pred['predicted_high']:.2f}")
-                
-                with pred_cols[3]:
-                    if pred['predicted_low']:
-                        st.metric("Predicted Low", f"${pred['predicted_low']:.2f}")
-                
-                if 'arima_forecast' in pred:
-                    with st.expander("ARIMA Statistical Analysis"):
-                        st.metric("ARIMA Forecast", f"${pred['arima_forecast']:.2f}")
-                        st.metric("Lower Bound", f"${pred['arima_lower']:.2f}")
-                        st.metric("Upper Bound", f"${pred['arima_upper']:.2f}")
-                        if 'model_order' in pred:
-                            st.write(f"Model Order (p,d,q): {pred['model_order']}")
-                
-                if 'lstm_forecast' in pred:
-                    with st.expander("Deep Learning Analysis"):
-                        st.metric("LSTM Forecast", f"${pred['lstm_forecast']:.2f}")
-                        if 'combined_forecast' in pred:
-                            st.metric("Combined Forecast", f"${pred['combined_forecast']:.2f}")
-        
-        # Fundamental Analysis
-        st.subheader("Fundamental Analysis")
-        metrics = get_fundamental_metrics(ticker)
-        analysis = analyze_fundamentals(metrics)
-        
-        cols = st.columns(4)
-        for i, (metric, value) in enumerate(metrics.items()):
-            with cols[i % 4]:
-                st.metric(metric, value)
-        
-        # Fundamental Analysis Summary
-        if analysis['strengths'] or analysis['weaknesses']:
-            st.subheader("Fundamental Analysis Summary")
-            col1, col2 = st.columns(2)
+            current_price = df['Close'].iloc[-1]
+            price_change = ((current_price - df['Close'].iloc[-2]) / df['Close'].iloc[-2]) * 100
+            
             with col1:
-                st.write("**Strengths**")
-                for strength in analysis['strengths']:
-                    st.write(f"✅ {strength}")
+                st.metric("Current Price", f"${current_price:.2f}", f"{price_change:.2f}%")
             with col2:
-                st.write("**Weaknesses**")
-                for weakness in analysis['weaknesses']:
-                    st.write(f"⚠️ {weakness}")
-        
-        # News Section
-        st.subheader("Latest News")
-        news = get_news(ticker)
-        for article in news:
-            sentiment_label, sentiment_color = format_news_sentiment(article['sentiment'])
-            with st.expander(f"{article['title']} ({sentiment_label})"):
-                if article.get('image_url'):
-                    st.image(article['image_url'], use_container_width=True)
-                st.write(article['summary'])
-                st.write(f"Source: {article['source']} | [Read More]({article['url']})")
-    else:
-        st.error("Unable to fetch stock data. Please check the ticker symbol.")
+                st.metric("Market Cap", f"${info.get('market_cap', 0):,.0f}")
+            with col3:
+                if is_crypto(ticker):
+                    st.metric("24h Volume", f"${info.get('volume_24h', 0):,.0f}")
+                else:
+                    st.metric("P/E Ratio", f"{info.get('pe_ratio', 0):.2f}")
+            
+            # Technical Analysis Tab
+            tabs = st.tabs(["Technical Analysis", "Price Prediction", "News", "Backtesting"])
+            
+            with tabs[0]:
+                # Display interactive chart
+                fig = create_stock_chart(df, {})
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Display trading signals
+                signals = generate_signals(df)
+                display_signals(signals)
+                display_technical_summary(df)
+                
+            with tabs[1]:
+                predictions = get_prediction(df, ticker)
+                
+                for timeframe, pred in predictions.items():
+                    if timeframe != 'daily':  # Skip daily predictions in this view
+                        st.subheader(f"{pred['timeframe']} Forecast")
+                        forecast_cols = st.columns(4)
+                        with forecast_cols[0]:
+                            st.metric("Direction", pred['direction'])
+                        with forecast_cols[1]:
+                            st.metric("Confidence", f"{pred['confidence']*100:.1f}%")
+                        with forecast_cols[2]:
+                            st.metric("Predicted High", f"${pred['predicted_high']:.2f}")
+                        with forecast_cols[3]:
+                            st.metric("Predicted Low", f"${pred['predicted_low']:.2f}")
+                
+            with tabs[2]:
+                news = get_news(ticker)
+                for article in news:
+                    sentiment, color = format_news_sentiment(article['sentiment'])
+                    st.markdown(
+                        f"""
+                        <div style='padding: 10px; border-left: 5px solid {color}; margin: 10px 0;'>
+                            <h4>{article['title']}</h4>
+                            <p>{article['summary']}</p>
+                            <small>Source: {article['source']} | Sentiment: {sentiment}</small>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+            
+            with tabs[3]:
+                st.subheader("Strategy Backtesting")
+                initial_investment = st.number_input("Initial Investment ($)", min_value=1000, value=10000, step=1000)
+                
+                if st.button("Run Backtest"):
+                    backtest_results = backtest_prediction_model(df, initial_investment)
+                    
+                    # Display backtest metrics
+                    metric_cols = st.columns(4)
+                    with metric_cols[0]:
+                        st.metric("Final Portfolio Value", f"${backtest_results['final_value']:,.2f}")
+                    with metric_cols[1]:
+                        st.metric("Total Return", f"{backtest_results['total_return']:.1f}%")
+                    with metric_cols[2]:
+                        st.metric("Win Rate", f"{backtest_results['win_rate']:.1f}%")
+                    with metric_cols[3]:
+                        st.metric("Total Trades", backtest_results['total_trades'])
+                    
+                    # Display backtest chart
+                    if len(backtest_results['history']) > 0:
+                        fig = create_backtest_chart(backtest_results['history'])
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+        else:
+            st.error("No data available for this symbol.")
+            
+    except Exception as e:
+        st.error(f"Error analyzing asset: {str(e)}")

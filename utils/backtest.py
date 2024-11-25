@@ -1,92 +1,68 @@
 import pandas as pd
+import streamlit as st
 import plotly.graph_objects as go
 from utils.prediction import calculate_prediction
 
 def backtest_prediction_model(df: pd.DataFrame, initial_investment: float) -> dict:
+    st.info("This backtest is based on the 1-day forecasts made by our model. For UP predictions, it simulates buying at open price and selling at the day's achieved high price if profitable. For DOWN predictions, it simulates shorting at open price and covering at the day's achieved low price if profitable.")
+    
     history = []
     portfolio_value = initial_investment
-    cash = initial_investment
-    position = None
-    shares = 0
-    
-    # Trading performance metrics
     total_trades = 0
     profitable_trades = 0
     total_profit = 0
-    total_loss = 0
-    
-    # Transaction costs
-    commission = 0.001  # 0.1% per trade
     
     # Use sliding window for predictions
-    window_size = 30  # For daily predictions
+    window_size = 30
     
     for i in range(window_size, len(df)-1):
-        # Get historical data up to current point
+        # Get data for current and next day
         historical_data = df.iloc[:i]
-        current_price = df['Close'].iloc[i]
-        next_price = df['Close'].iloc[i+1]
+        next_day = df.iloc[i+1]
         
         # Get prediction for next day
         prediction = calculate_prediction(historical_data, timeframe='daily')
         if not prediction:
             continue
-            
-        predicted_high = prediction.get('forecast', 0) * 1.02
-        predicted_low = prediction.get('forecast', 0) * 0.98
-        confidence = prediction.get('confidence', 0)
         
-        # Trading logic
-        if position is None:  # No position
-            if current_price < predicted_low and confidence > 0.6:
-                # Buy signal with high confidence
-                position_size = cash * 0.95  # Use 95% of available cash
-                shares = position_size * (1 - commission) / current_price
-                position = 'long'
-                cash -= position_size
-                total_trades += 1
-                entry_price = current_price
-        else:  # In position
-            position_value = shares * current_price
-            
-            # Calculate profit/loss
-            if position == 'long':
-                if current_price >= predicted_high:  # Take profit
-                    profit = shares * (current_price * (1 - commission) - entry_price)
-                    cash += shares * current_price * (1 - commission)
-                    if profit > 0:
-                        profitable_trades += 1
-                        total_profit += profit
-                    else:
-                        total_loss += abs(profit)
-                    position = None
-                    shares = 0
-                elif current_price <= predicted_low * 0.95:  # Stop loss
-                    loss = shares * (current_price * (1 - commission) - entry_price)
-                    cash += shares * current_price * (1 - commission)
-                    total_loss += abs(loss)
-                    position = None
-                    shares = 0
+        predicted_direction = 'UP' if prediction.get('forecast', 0) > df['Close'].iloc[i] else 'DOWN'
         
-        # Calculate current portfolio value
-        portfolio_value = cash + (shares * current_price if shares > 0 else 0)
+        # Simulate trade based on prediction
+        trade_profit = 0
+        trade_taken = False
+        
+        if predicted_direction == 'UP':
+            # Long trade: Buy at open, sell at high if profitable
+            if next_day['High'] > next_day['Open']:
+                trade_profit = ((next_day['High'] - next_day['Open']) / next_day['Open']) * portfolio_value
+                trade_taken = True
+                
+        else:  # predicted_direction == 'DOWN'
+            # Short trade: Sell at open, buy at low if profitable
+            if next_day['Low'] < next_day['Open']:
+                trade_profit = ((next_day['Open'] - next_day['Low']) / next_day['Open']) * portfolio_value
+                trade_taken = True
+        
+        if trade_taken:
+            total_trades += 1
+            if trade_profit > 0:
+                profitable_trades += 1
+                total_profit += trade_profit
+            portfolio_value += trade_profit
         
         # Record history
         history.append({
-            'date': df.index[i],
+            'date': df.index[i+1],
             'portfolio_value': portfolio_value,
-            'predicted_high': predicted_high,
-            'predicted_low': predicted_low,
-            'actual_price': current_price,
-            'position': position,
-            'confidence': confidence
+            'predicted_direction': predicted_direction,
+            'open_price': next_day['Open'],
+            'high_price': next_day['High'],
+            'low_price': next_day['Low'],
+            'trade_profit': trade_profit if trade_taken else 0,
+            'trade_taken': trade_taken
         })
     
-    # Calculate final metrics
-    total_pnl = total_profit - total_loss
     win_rate = (profitable_trades / total_trades * 100) if total_trades > 0 else 0
-    avg_profit_per_trade = total_profit / profitable_trades if profitable_trades > 0 else 0
-    avg_loss_per_trade = total_loss / (total_trades - profitable_trades) if (total_trades - profitable_trades) > 0 else 0
     
     return {
         'final_value': portfolio_value,
@@ -94,10 +70,7 @@ def backtest_prediction_model(df: pd.DataFrame, initial_investment: float) -> di
         'total_trades': total_trades,
         'profitable_trades': profitable_trades,
         'win_rate': win_rate,
-        'accuracy': win_rate,  # Same as win rate in this case
-        'avg_profit_per_trade': avg_profit_per_trade,
-        'avg_loss_per_trade': avg_loss_per_trade,
-        'profit_factor': total_profit / total_loss if total_loss > 0 else float('inf'),
+        'accuracy': win_rate,
         'history': pd.DataFrame(history)
     }
 
@@ -112,29 +85,32 @@ def create_backtest_chart(history: pd.DataFrame) -> go.Figure:
         line=dict(color='#FF4B4B', width=2)
     ))
     
-    # Actual price
-    fig.add_trace(go.Scatter(
-        x=history['date'],
-        y=history['actual_price'],
-        name='Stock Price',
-        line=dict(color='#4B4BFF', width=1)
-    ))
+    # Add trade markers
+    profitable_trades = history[history['trade_profit'] > 0]
+    losing_trades = history[history['trade_profit'] < 0]
     
-    # Add buy/sell markers
-    long_entries = history[history['position'] == 'long'].index
-    if len(long_entries) > 0:
+    if len(profitable_trades) > 0:
         fig.add_trace(go.Scatter(
-            x=history['date'][long_entries],
-            y=history['actual_price'][long_entries],
+            x=profitable_trades['date'],
+            y=profitable_trades['portfolio_value'],
             mode='markers',
-            name='Buy Signal',
+            name='Profitable Trade',
             marker=dict(color='green', size=10, symbol='triangle-up')
         ))
     
+    if len(losing_trades) > 0:
+        fig.add_trace(go.Scatter(
+            x=losing_trades['date'],
+            y=losing_trades['portfolio_value'],
+            mode='markers',
+            name='Losing Trade',
+            marker=dict(color='red', size=10, symbol='triangle-down')
+        ))
+    
     fig.update_layout(
-        title='Backtest Results - Portfolio Value and Trading Signals',
+        title='Backtest Results - Daily Prediction Performance',
         xaxis_title='Date',
-        yaxis_title='Value ($)',
+        yaxis_title='Portfolio Value ($)',
         template='plotly_dark',
         height=600,
         showlegend=True
