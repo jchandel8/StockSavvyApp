@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from utils.stock_data import get_stock_data, get_stock_info, search_stocks, is_crypto, format_crypto_symbol
 from utils.technical_analysis import generate_signals
-from utils.fundamental_analysis import get_fundamental_metrics, analyze_fundamentals
+from utils.fundamental_analysis import get_fundamental_metrics, analyze_fundamentals, format_market_cap
 from utils.prediction import get_prediction
 from utils.news_service import get_news, format_news_sentiment
 from utils.backtest import backtest_prediction_model, create_backtest_chart
@@ -75,7 +75,7 @@ if ticker:
             with col1:
                 st.metric("Current Price", f"${current_price:.2f}", f"{price_change:.2f}%")
             with col2:
-                st.metric("Market Cap", f"${info.get('market_cap', 0):,.0f}")
+                st.metric("Market Cap", format_market_cap(info.get('market_cap', 0)))
             with col3:
                 if is_crypto(ticker):
                     st.metric("24h Volume", f"${info.get('volume_24h', 0):,.0f}")
