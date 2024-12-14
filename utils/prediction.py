@@ -2,7 +2,14 @@ import pandas as pd
 import numpy as np
 import streamlit as st
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.linear_model import LinearRegression
+from keras.models import Sequential
+from keras.layers import LSTM, Dense, Dropout
+import ta
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 from utils.stock_data import is_crypto
 from utils.technical_analysis import (
     calculate_gap_and_go_signals,
@@ -11,6 +18,48 @@ from utils.technical_analysis import (
     calculate_weekly_trendline_break,
     calculate_mvrv_ratio
 )
+
+def build_lstm_model(input_shape):
+    """Build and return an LSTM model for price prediction."""
+    model = Sequential([
+        LSTM(64, return_sequences=True, input_shape=input_shape),
+        Dropout(0.2),
+        LSTM(32),
+        Dropout(0.2),
+        Dense(16, activation='relu'),
+        Dense(1)
+    ])
+    model.compile(optimizer='adam', loss='huber')
+    return model
+
+def prepare_features(data: pd.DataFrame) -> pd.DataFrame:
+    """Prepare comprehensive feature set for prediction."""
+    features = pd.DataFrame()
+    
+    # Price-based features
+    features['close'] = data['Close']
+    features['returns'] = data['Close'].pct_change()
+    features['log_returns'] = np.log1p(data['Close']).diff()
+    
+    # Volume indicators
+    features['volume_sma'] = data['Volume'].rolling(20).mean()
+    features['volume_ratio'] = data['Volume'] / features['volume_sma']
+    
+    # Momentum indicators
+    features['rsi'] = ta.momentum.RSIIndicator(data['Close']).rsi()
+    features['macd'] = ta.trend.MACD(data['Close']).macd()
+    features['cci'] = ta.trend.CCIIndicator(data['High'], data['Low'], data['Close']).cci()
+    
+    # Volatility
+    features['atr'] = ta.volatility.AverageTrueRange(data['High'], data['Low'], data['Close']).average_true_range()
+    features['bbands_width'] = ta.volatility.BollingerBands(data['Close']).bollinger_wband()
+    
+    # Trend indicators
+    features['sma_20'] = data['Close'].rolling(20).mean()
+    features['sma_50'] = data['Close'].rolling(50).mean()
+    features['trend'] = np.where(features['sma_20'] > features['sma_50'], 1, -1)
+    
+    return features.fillna(0)
 
 def calculate_prediction(data: pd.DataFrame, timeframe: str = 'short_term', look_back: int = None) -> dict:
     # Set look_back periods based on timeframe
@@ -23,43 +72,54 @@ def calculate_prediction(data: pd.DataFrame, timeframe: str = 'short_term', look
         }.get(timeframe, 30)
     
     try:
-        # Prepare data with specific look_back
-        prices = np.array(data['Close']).reshape(-1, 1)
+        # Prepare features
+        features = prepare_features(data)
         scaler = MinMaxScaler(feature_range=(0, 1))
-        scaled_data = scaler.fit_transform(prices)
+        scaled_features = scaler.fit_transform(features)
         
-        # Prepare sequences with timeframe-specific look_back
+        # Prepare sequences
         X, y = [], []
-        for i in range(look_back, len(scaled_data)):
-            X.append(scaled_data[i-look_back:i, 0])
-            y.append(scaled_data[i, 0])
+        for i in range(look_back, len(scaled_features)):
+            X.append(scaled_features[i-look_back:i])
+            y.append(1 if data['Close'].iloc[i] > data['Close'].iloc[i-1] else 0)
         
         X, y = np.array(X), np.array(y)
         
-        # Train model
-        model = LinearRegression()
-        model.fit(X, y)
+        # Build and train model
+        model = build_lstm_model((look_back, scaled_features.shape[1]))
+        model.fit(X, y, epochs=50, batch_size=32, verbose=0)
         
         # Make prediction
-        last_sequence = scaled_data[-look_back:].reshape(1, -1)
-        predicted_scaled = model.predict(last_sequence)
-        predicted_price = scaler.inverse_transform(predicted_scaled.reshape(-1, 1))
+        last_sequence = scaled_features[-look_back:].reshape(1, look_back, scaled_features.shape[1])
+        prediction_probability = model.predict(last_sequence)[0][0]
         
-        # Calculate volatility factor based on timeframe
-        volatility = np.std(data['Close'].pct_change().dropna())
-        volatility_factor = {
-            'short_term': 1.0,
-            'medium_term': 1.5,
-            'long_term': 2.0
-        }.get(timeframe, 1.0)
+        # Calculate confidence factors
+        volatility = features['atr'].iloc[-1] / data['Close'].iloc[-1]
+        volume_trend = features['volume_ratio'].iloc[-1]
+        trend_strength = 1 if features['trend'].iloc[-1] * prediction_probability > 0.5 else 0.5
         
-        # Adjust confidence based on timeframe and volatility
-        base_confidence = max(min(model.score(X, y), 1.0), 0.0)
-        adjusted_confidence = base_confidence * (1 / (1 + volatility * volatility_factor))
+        # Calculate prediction confidence
+        model_accuracy = np.mean(model.predict(X) == y)
+        base_confidence = model_accuracy
+        volatility_factor = 1 / (1 + volatility)
+        volume_factor = min(volume_trend, 2)
         
+        confidence = base_confidence * volatility_factor * volume_factor * trend_strength
+        confidence = min(max(confidence, 0), 0.95)  # Cap maximum confidence at 95%
+        
+        # Determine forecast direction and price
+        current_price = data['Close'].iloc[-1]
+        price_change = current_price * 0.01 * (prediction_probability - 0.5) * 2  # Scale to ±1% range
+        forecast = current_price + price_change
+        
+        # Only return prediction if confidence meets minimum threshold
+        if confidence < 0.7:
+            return None
+            
         return {
-            'forecast': float(predicted_price[0][0]),
-            'confidence': adjusted_confidence
+            'forecast': float(forecast),
+            'confidence': confidence,
+            'direction': 'UP' if prediction_probability > 0.5 else 'DOWN'
         }
     except Exception as e:
         st.error(f"Error in prediction: {str(e)}")
