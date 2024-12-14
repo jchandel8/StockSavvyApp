@@ -1,4 +1,16 @@
 {
   "name": "StockSavvyApp",
-  "displayName": "Stock Savvy"
+  "displayName": "Stock Savvy",
+  "expo": {
+    "name": "Stock Savvy",
+    "slug": "stock-savvy",
+    "version": "1.0.0",
+    "assetBundlePatterns": ["**/*"],
+    "android": {
+      "package": "com.stocksavvy"
+    },
+    "ios": {
+      "bundleIdentifier": "com.stocksavvy"
+    }
+  }
 }

@@ -1,23 +1,23 @@
-// Learn more https://docs.expo.io/guides/customizing-metro
-const { getDefaultConfig } = require('metro-config');
+const { getDefaultConfig } = require('@react-native/metro-config');
 
 module.exports = (async () => {
-  const {
-    resolver: { sourceExts, assetExts }
-  } = await getDefaultConfig();
+  const config = await getDefaultConfig(__dirname);
+  const { transformer, resolver } = config;
+
   return {
     transformer: {
-      babelTransformerPath: require.resolve('react-native-svg-transformer'),
-      getTransformOptions: async () => ({
-        transform: {
-          experimentalImportSupport: false,
-          inlineRequires: false,
-        },
-      }),
+      ...transformer,
+      babelTransformerPath: require.resolve('react-native-svg-transformer')
     },
     resolver: {
-      assetExts: assetExts.filter(ext => ext !== 'svg'),
-      sourceExts: [...sourceExts, 'svg']
+      ...resolver,
+      assetExts: resolver.assetExts.filter((ext) => ext !== 'svg'),
+      sourceExts: [...resolver.sourceExts, 'svg'],
+      // Ensure we're not picking up duplicate modules from node_modules
+      blacklistRE: /\.cache\/.*$/
     },
+    watchFolders: [__dirname],
+    // Exclude cache directories from Metro
+    resetCache: true
   };
 })();
