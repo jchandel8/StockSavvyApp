@@ -1,7 +1,7 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import HomeScreen from './src/screens/HomeScreen';
@@ -18,56 +18,71 @@ export type RootStackParamList = {
 
 const Stack = createStackNavigator<RootStackParamList>();
 
+const MyTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: '#0E1117',
+    primary: '#FF4B4B',
+    card: '#262730',
+    text: '#FFFFFF',
+    border: '#262730',
+  },
+};
+
 const App = () => {
   return (
-    <GestureHandlerRootView style={styles.container}>
-      <SafeAreaProvider>
-        <NavigationContainer>
-          <Stack.Navigator
-            initialRouteName="Home"
-            screenOptions={{
-              headerStyle: {
-                backgroundColor: '#262730',
-              },
-              headerTintColor: '#fff',
-              headerTitleStyle: {
-                fontWeight: 'bold',
-              },
-            }}
-          >
-            <Stack.Screen 
-              name="Home" 
-              component={HomeScreen} 
-              options={{ title: 'Stock Analysis' }}
-            />
-            <Stack.Screen 
-              name="StockDetail" 
-              component={StockDetailScreen} 
-              options={({ route }) => ({ 
-                title: route.params.symbol,
-                headerBackTitleVisible: false,
-              })}
-            />
-            <Stack.Screen 
-              name="Backtest" 
-              component={BacktestScreen} 
-              options={{ 
-                title: 'Backtesting',
-                headerBackTitleVisible: false,
+    <View style={styles.container}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <NavigationContainer theme={MyTheme}>
+            <Stack.Navigator
+              initialRouteName="Home"
+              screenOptions={{
+                headerStyle: {
+                  backgroundColor: '#262730',
+                },
+                headerTintColor: '#fff',
+                headerTitleStyle: {
+                  fontWeight: 'bold',
+                },
+                cardStyle: { backgroundColor: '#0E1117' },
               }}
-            />
-            <Stack.Screen 
-              name="News" 
-              component={NewsScreen} 
-              options={{ 
-                title: 'Market News',
-                headerBackTitleVisible: false,
-              }}
-            />
-          </Stack.Navigator>
-        </NavigationContainer>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+            >
+              <Stack.Screen 
+                name="Home" 
+                component={HomeScreen} 
+                options={{ title: 'Stock Analysis' }}
+              />
+              <Stack.Screen 
+                name="StockDetail" 
+                component={StockDetailScreen} 
+                options={({ route }) => ({ 
+                  title: route.params.symbol,
+                  headerBackTitleVisible: false,
+                })}
+              />
+              <Stack.Screen 
+                name="Backtest" 
+                component={BacktestScreen} 
+                options={{ 
+                  title: 'Backtesting',
+                  headerBackTitleVisible: false,
+                }}
+              />
+              <Stack.Screen 
+                name="News" 
+                component={NewsScreen} 
+                options={{ 
+                  title: 'Market News',
+                  headerBackTitleVisible: false,
+                }}
+              />
+            </Stack.Navigator>
+          </NavigationContainer>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </View>
   );
 };
 
