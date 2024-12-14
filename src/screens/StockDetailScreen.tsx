@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { getStockData } from '../services/stockService';
