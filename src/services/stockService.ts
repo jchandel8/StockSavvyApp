@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'YOUR_API_BASE_URL';
+const API_BASE_URL = 'http://0.0.0.0:5000/api';
 
 export const searchStocks = async (query: string) => {
   try {

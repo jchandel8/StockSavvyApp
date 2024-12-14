@@ -37,8 +37,19 @@ const StockDetailScreen = ({ route }) => {
     );
   }
 
+  if (!stockData && !loading) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>Unable to load stock data</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={fetchStockData}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} bounces={true}>
       {stockData && (
         <>
           <View style={styles.header}>
@@ -202,6 +213,29 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     marginTop: 4,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#0E1117',
+    padding: 20,
+  },
+  errorText: {
+    color: '#FF4B4B',
+    fontSize: 16,
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: '#FF4B4B',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 
