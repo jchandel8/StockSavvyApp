@@ -17,9 +17,14 @@ module.exports = (async () => {
       sourceExts: [...defaultConfig.resolver.sourceExts, 'svg', 'ts', 'tsx'],
       platforms: ['ios', 'android', 'web'],
       blockList: [
+        /\.pythonlibs\/.*/,
+        /\.streamlit\/.*/,
         /\.git\/.*/,
         /\.cache\/.*/,
         /node_modules\/.*\/node_modules\/react-native\/.*/,
+        /.*\.pyc$/,
+        /.*__pycache__\/.*/,
+        /utils\/.*\.py$/
       ],
     },
     watchFolders: [__dirname],

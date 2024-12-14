@@ -33,7 +33,7 @@ const MyTheme = {
 const App = () => {
   return (
     <View style={styles.container}>
-      <GestureHandlerRootView style={{ flex: 1 }}>
+      <GestureHandlerRootView style={styles.container}>
         <SafeAreaProvider>
           <NavigationContainer theme={MyTheme}>
             <Stack.Navigator
