@@ -12,6 +12,7 @@ def validate_trade(prediction, confidence, market_conditions, current_price):
     )
 
 def backtest_prediction_model(df: pd.DataFrame, initial_investment: float) -> dict:
+    """Run backtesting simulation with realistic trading conditions."""
     st.info("This backtest simulates realistic trading conditions including transaction costs, slippage, and risk management.")
     
     # Constants for trading simulation
@@ -49,118 +50,122 @@ def backtest_prediction_model(df: pd.DataFrame, initial_investment: float) -> di
             # Ensure prediction contains required fields
             if not all(key in prediction for key in ['forecast', 'confidence', 'direction']):
                 continue
-        
-        forecast = prediction.get('forecast', 0)
-        confidence = prediction.get('confidence', 0)
-        
-        # Only trade if confidence is high enough
-        if confidence < 0.6:
-            continue
             
-        predicted_direction = 'UP' if forecast > current_day['Close'] else 'DOWN'
-        
-        # Calculate market conditions
-        market_conditions = {
-            'trend': 'UP' if df['Close'].iloc[i] > df['Close'].iloc[i-20:i].mean() else 'DOWN',
-            'volatility': df['Close'].iloc[i-20:i].std() / df['Close'].iloc[i-20:i].mean()
-        }
-        
-        # Validate trade
-        if not validate_trade(prediction, confidence, market_conditions, current_day['Close']):
-            continue
-        
-        # Calculate dynamic position size based on volatility and confidence
-        volatility_factor = 1 / (1 + market_conditions['volatility'])
-        position_size = min(BASE_POSITION_SIZE * confidence * volatility_factor, BASE_POSITION_SIZE) * portfolio_value
-        
-        # Calculate entry price with slippage
-        entry_price = next_day['Open'] * (1 + SLIPPAGE) if predicted_direction == 'UP' else next_day['Open'] * (1 - SLIPPAGE)
-        
-        # Calculate adaptive stop loss and take profit levels based on volatility
-        volatility_multiplier = 1 + market_conditions['volatility']
-        stop_loss = BASE_STOP_LOSS * volatility_multiplier
-        take_profit = BASE_TAKE_PROFIT * volatility_multiplier
-        
-        stop_loss_price = entry_price * (1 - stop_loss) if predicted_direction == 'UP' else entry_price * (1 + stop_loss)
-        take_profit_price = entry_price * (1 + take_profit) if predicted_direction == 'UP' else entry_price * (1 - take_profit)
-        
-        # Simulate trade based on prediction
-        trade_profit = 0
-        trade_taken = False
-        exit_price = entry_price  # Default to entry price
-        
-        if predicted_direction == 'UP':
-            # Long trade simulation with realistic exit conditions
-            shares = position_size / entry_price
-            transaction_cost = position_size * TRANSACTION_COST * 2  # Entry and exit costs
+            forecast = prediction.get('forecast', 0)
+            confidence = prediction.get('confidence', 0)
             
-            # Check if stop loss was hit first
-            if next_day['Low'] <= stop_loss_price:
-                exit_price = stop_loss_price
-                trade_profit = (exit_price - entry_price) * shares - transaction_cost
-                trade_taken = True
-            # Check if take profit was hit
-            elif next_day['High'] >= take_profit_price:
-                exit_price = take_profit_price
-                trade_profit = (exit_price - entry_price) * shares - transaction_cost
-                trade_taken = True
-            # Otherwise, close at end of day
-            else:
-                exit_price = next_day['Close']
-                trade_profit = (exit_price - entry_price) * shares - transaction_cost
-                trade_taken = True
+            # Only trade if confidence is high enough
+            if confidence < 0.6:
+                continue
                 
-        else:  # predicted_direction == 'DOWN'
-            # Short trade simulation with realistic exit conditions
-            shares = position_size / entry_price
-            transaction_cost = position_size * TRANSACTION_COST * 2  # Entry and exit costs
+            predicted_direction = 'UP' if forecast > current_day['Close'] else 'DOWN'
             
-            # Check if stop loss was hit first
-            if next_day['High'] >= stop_loss_price:
-                exit_price = stop_loss_price
-                trade_profit = (entry_price - exit_price) * shares - transaction_cost
-                trade_taken = True
-            # Check if take profit was hit
-            elif next_day['Low'] <= take_profit_price:
-                exit_price = take_profit_price
-                trade_profit = (entry_price - exit_price) * shares - transaction_cost
-                trade_taken = True
-            # Otherwise, close at end of day
-            else:
-                exit_price = next_day['Close']
-                trade_profit = (entry_price - exit_price) * shares - transaction_cost
-                trade_taken = True
-        
-        if trade_taken:
-            total_trades += 1
-            portfolio_value += trade_profit
+            # Calculate market conditions
+            market_conditions = {
+                'trend': 'UP' if df['Close'].iloc[i] > df['Close'].iloc[i-20:i].mean() else 'DOWN',
+                'volatility': df['Close'].iloc[i-20:i].std() / df['Close'].iloc[i-20:i].mean()
+            }
             
-            if trade_profit > 0:
-                profitable_trades += 1
-                total_profit += trade_profit
+            # Validate trade
+            if not validate_trade(prediction, market_conditions, confidence, current_day['Close']):
+                continue
             
-            # Update maximum drawdown
-            peak_value = max(peak_value, portfolio_value)
-            drawdown = (peak_value - portfolio_value) / peak_value
-            max_drawdown = max(max_drawdown, drawdown)
-        
-        # Record history with proper price fields and trade details
-        trade_record = {
-            'date': df.index[i+1],
-            'portfolio_value': portfolio_value,
-            'predicted_direction': predicted_direction,
-            'prediction_confidence': confidence,
-            'open_price': next_day['Open'],
-            'high_price': next_day['High'],
-            'low_price': next_day['Low'],
-            'close_price': next_day['Close'],
-            'position_size': position_size if trade_taken else 0,
-            'entry_price': entry_price if trade_taken else next_day['Open'],
-            'exit_price': exit_price if trade_taken else next_day['Close'],
-            'trade_profit': trade_profit if trade_taken else 0,
-            'trade_taken': trade_taken
-        }
-        history.append(trade_record)
+            # Calculate dynamic position size based on volatility and confidence
+            volatility_factor = 1 / (1 + market_conditions['volatility'])
+            position_size = min(BASE_POSITION_SIZE * confidence * volatility_factor, BASE_POSITION_SIZE) * portfolio_value
+            
+            # Calculate entry price with slippage
+            entry_price = next_day['Open'] * (1 + SLIPPAGE) if predicted_direction == 'UP' else next_day['Open'] * (1 - SLIPPAGE)
+            
+            # Calculate adaptive stop loss and take profit levels based on volatility
+            volatility_multiplier = 1 + market_conditions['volatility']
+            stop_loss = BASE_STOP_LOSS * volatility_multiplier
+            take_profit = BASE_TAKE_PROFIT * volatility_multiplier
+            
+            stop_loss_price = entry_price * (1 - stop_loss) if predicted_direction == 'UP' else entry_price * (1 + stop_loss)
+            take_profit_price = entry_price * (1 + take_profit) if predicted_direction == 'UP' else entry_price * (1 - take_profit)
+            
+            # Simulate trade based on prediction
+            trade_profit = 0
+            trade_taken = False
+            exit_price = entry_price  # Default to entry price
+            
+            if predicted_direction == 'UP':
+                # Long trade simulation with realistic exit conditions
+                shares = position_size / entry_price
+                transaction_cost = position_size * TRANSACTION_COST * 2  # Entry and exit costs
+                
+                # Check if stop loss was hit first
+                if next_day['Low'] <= stop_loss_price:
+                    exit_price = stop_loss_price
+                    trade_profit = (exit_price - entry_price) * shares - transaction_cost
+                    trade_taken = True
+                # Check if take profit was hit
+                elif next_day['High'] >= take_profit_price:
+                    exit_price = take_profit_price
+                    trade_profit = (exit_price - entry_price) * shares - transaction_cost
+                    trade_taken = True
+                # Otherwise, close at end of day
+                else:
+                    exit_price = next_day['Close']
+                    trade_profit = (exit_price - entry_price) * shares - transaction_cost
+                    trade_taken = True
+                    
+            else:  # predicted_direction == 'DOWN'
+                # Short trade simulation with realistic exit conditions
+                shares = position_size / entry_price
+                transaction_cost = position_size * TRANSACTION_COST * 2  # Entry and exit costs
+                
+                # Check if stop loss was hit first
+                if next_day['High'] >= stop_loss_price:
+                    exit_price = stop_loss_price
+                    trade_profit = (entry_price - exit_price) * shares - transaction_cost
+                    trade_taken = True
+                # Check if take profit was hit
+                elif next_day['Low'] <= take_profit_price:
+                    exit_price = take_profit_price
+                    trade_profit = (entry_price - exit_price) * shares - transaction_cost
+                    trade_taken = True
+                # Otherwise, close at end of day
+                else:
+                    exit_price = next_day['Close']
+                    trade_profit = (entry_price - exit_price) * shares - transaction_cost
+                    trade_taken = True
+            
+            if trade_taken:
+                total_trades += 1
+                portfolio_value += trade_profit
+                
+                if trade_profit > 0:
+                    profitable_trades += 1
+                    total_profit += trade_profit
+                
+                # Update maximum drawdown
+                peak_value = max(peak_value, portfolio_value)
+                drawdown = (peak_value - portfolio_value) / peak_value
+                max_drawdown = max(max_drawdown, drawdown)
+            
+            # Record history with proper price fields and trade details
+            trade_record = {
+                'date': df.index[i+1],
+                'portfolio_value': portfolio_value,
+                'predicted_direction': predicted_direction,
+                'prediction_confidence': confidence,
+                'open_price': next_day['Open'],
+                'high_price': next_day['High'],
+                'low_price': next_day['Low'],
+                'close_price': next_day['Close'],
+                'position_size': position_size if trade_taken else 0,
+                'entry_price': entry_price if trade_taken else next_day['Open'],
+                'exit_price': exit_price if trade_taken else next_day['Close'],
+                'trade_profit': trade_profit if trade_taken else 0,
+                'trade_taken': trade_taken
+            }
+            history.append(trade_record)
+            
+        except Exception as e:
+            st.error(f"Error in backtesting iteration: {str(e)}")
+            continue
     
     win_rate = (profitable_trades / total_trades * 100) if total_trades > 0 else 0
     avg_profit_per_trade = total_profit / total_trades if total_trades > 0 else 0
@@ -181,6 +186,7 @@ def backtest_prediction_model(df: pd.DataFrame, initial_investment: float) -> di
     }
 
 def create_backtest_chart(history: pd.DataFrame) -> go.Figure:
+    """Create an interactive chart showing backtest results."""
     fig = go.Figure()
     
     # Portfolio value
