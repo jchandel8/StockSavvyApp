@@ -20,20 +20,24 @@ from utils.technical_analysis import (
 )
 
 def build_lstm_model(input_shape):
-    """Build and return an LSTM model for price prediction."""
+    """Build and return an enhanced LSTM model for price prediction."""
     model = Sequential([
-        LSTM(64, return_sequences=True, input_shape=input_shape),
-        Dropout(0.2),
+        LSTM(128, return_sequences=True, input_shape=input_shape),
+        Dropout(0.3),
+        LSTM(64, return_sequences=True),
+        Dropout(0.3),
         LSTM(32),
         Dropout(0.2),
+        Dense(32, activation='relu'),
+        Dropout(0.2),
         Dense(16, activation='relu'),
-        Dense(1)
+        Dense(1, activation='sigmoid')
     ])
-    model.compile(optimizer='adam', loss='huber')
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
     return model
 
 def prepare_features(data: pd.DataFrame) -> pd.DataFrame:
-    """Prepare comprehensive feature set for prediction."""
+    """Prepare comprehensive feature set for prediction with enhanced indicators."""
     features = pd.DataFrame()
     
     # Price-based features
@@ -41,23 +45,39 @@ def prepare_features(data: pd.DataFrame) -> pd.DataFrame:
     features['returns'] = data['Close'].pct_change()
     features['log_returns'] = np.log1p(data['Close']).diff()
     
-    # Volume indicators
+    # Volume indicators with enhanced analysis
     features['volume_sma'] = data['Volume'].rolling(20).mean()
     features['volume_ratio'] = data['Volume'] / features['volume_sma']
+    features['volume_momentum'] = data['Volume'].pct_change()
+    features['volume_trend'] = data['Volume'].rolling(10).mean() / data['Volume'].rolling(30).mean()
     
-    # Momentum indicators
+    # Enhanced momentum indicators
     features['rsi'] = ta.momentum.RSIIndicator(data['Close']).rsi()
+    features['rsi_trend'] = features['rsi'].rolling(5).mean() - features['rsi'].rolling(15).mean()
     features['macd'] = ta.trend.MACD(data['Close']).macd()
+    features['macd_signal'] = ta.trend.MACD(data['Close']).macd_signal()
+    features['macd_diff'] = ta.trend.MACD(data['Close']).macd_diff()
     features['cci'] = ta.trend.CCIIndicator(data['High'], data['Low'], data['Close']).cci()
+    features['mfi'] = ta.volume.MFIIndicator(data['High'], data['Low'], data['Close'], data['Volume']).money_flow_index()
     
-    # Volatility
+    # Advanced volatility metrics
     features['atr'] = ta.volatility.AverageTrueRange(data['High'], data['Low'], data['Close']).average_true_range()
-    features['bbands_width'] = ta.volatility.BollingerBands(data['Close']).bollinger_wband()
+    bb = ta.volatility.BollingerBands(data['Close'])
+    features['bbands_width'] = bb.bollinger_wband()
+    features['bbands_pct_b'] = bb.bollinger_pband()
+    features['volatility_index'] = data['Close'].rolling(20).std() / data['Close'].rolling(20).mean()
     
-    # Trend indicators
+    # Enhanced trend indicators
     features['sma_20'] = data['Close'].rolling(20).mean()
     features['sma_50'] = data['Close'].rolling(50).mean()
-    features['trend'] = np.where(features['sma_20'] > features['sma_50'], 1, -1)
+    features['sma_200'] = data['Close'].rolling(200).mean()
+    features['ema_20'] = ta.trend.EMAIndicator(data['Close'], window=20).ema_indicator()
+    features['trend_strength'] = (features['sma_20'] / features['sma_50'] - 1) * 100
+    features['long_trend'] = np.where(data['Close'] > features['sma_200'], 1, -1)
+    
+    # Price patterns
+    features['higher_highs'] = data['High'].rolling(5).max() > data['High'].rolling(5).max().shift(5)
+    features['lower_lows'] = data['Low'].rolling(5).min() < data['Low'].rolling(5).min().shift(5)
     
     return features.fillna(0)
 
@@ -102,19 +122,45 @@ def calculate_prediction(data: pd.DataFrame, timeframe: str = 'short_term', look
         last_sequence = scaled_features[-look_back:].reshape(1, look_back, scaled_features.shape[1])
         prediction_probability = model.predict(last_sequence)[0][0]
         
-        # Calculate confidence factors
-        volatility = features['atr'].iloc[-1] / data['Close'].iloc[-1]
-        volume_trend = features['volume_ratio'].iloc[-1]
-        trend_strength = 1 if features['trend'].iloc[-1] * prediction_probability > 0.5 else 0.5
+        # Calculate enhanced confidence factors
+        volatility = features['volatility_index'].iloc[-1]
+        volume_trend = features['volume_trend'].iloc[-1]
+        price_trend = features['trend_strength'].iloc[-1]
+        momentum = features['rsi_trend'].iloc[-1]
         
-        # Calculate prediction confidence
-        model_accuracy = np.mean(model.predict(X) == y)
-        base_confidence = model_accuracy
-        volatility_factor = 1 / (1 + volatility)
-        volume_factor = min(volume_trend, 2)
+        # Calculate trend alignment
+        short_trend = features['sma_20'].iloc[-1] > features['sma_50'].iloc[-1]
+        long_trend = features['sma_50'].iloc[-1] > features['sma_200'].iloc[-1]
+        trend_alignment = 1.2 if short_trend == long_trend else 0.8
         
-        confidence = base_confidence * volatility_factor * volume_factor * trend_strength
+        # Calculate volume confirmation
+        volume_confirmation = 1.2 if (volume_trend > 1 and price_trend > 0) else 0.8
+        
+        # Calculate momentum confirmation
+        momentum_confirmation = 1.2 if (
+            (prediction_probability > 0.5 and momentum > 0) or 
+            (prediction_probability < 0.5 and momentum < 0)
+        ) else 0.8
+        
+        # Calculate base model confidence
+        model_predictions = model.predict(X)
+        model_accuracy = np.mean((model_predictions > 0.5) == y)
+        recent_accuracy = np.mean((model_predictions[-10:] > 0.5) == y[-10:])
+        base_confidence = (model_accuracy + recent_accuracy) / 2
+        
+        # Combine all factors
+        confidence = (
+            base_confidence * 
+            trend_alignment * 
+            volume_confirmation * 
+            momentum_confirmation * 
+            (1 / (1 + volatility))
+        )
+        
+        # Apply stricter confidence thresholds
         confidence = min(max(confidence, 0), 0.95)  # Cap maximum confidence at 95%
+        if confidence < 0.7:  # Increased minimum threshold
+            confidence = 0.0  # Return no confidence if below threshold
         
         # Determine forecast direction and price
         current_price = data['Close'].iloc[-1]
