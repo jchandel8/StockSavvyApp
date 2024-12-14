@@ -3,12 +3,13 @@ import streamlit as st
 import plotly.graph_objects as go
 from utils.prediction import calculate_prediction
 
-def validate_trade(prediction, confidence, market_conditions, current_price):
+def validate_trade(prediction, market_conditions, confidence, current_price):
     """Validate if a trade should be taken based on multiple factors."""
     return (
-        confidence > 0.7 and  # High confidence requirement
+        confidence > 0.6 and  # Adjusted confidence requirement
         abs(prediction['forecast'] - current_price) / current_price > 0.01 and  # Minimum price movement
-        prediction['direction'] == market_conditions.get('trend', 'NEUTRAL')  # Trend alignment
+        prediction['direction'] == market_conditions.get('trend', 'NEUTRAL') and  # Trend alignment
+        market_conditions.get('volatility', 1.0) < 0.3  # Maximum volatility threshold
     )
 
 def backtest_prediction_model(df: pd.DataFrame, initial_investment: float) -> dict:
@@ -74,11 +75,19 @@ def backtest_prediction_model(df: pd.DataFrame, initial_investment: float) -> di
             volatility_factor = 1 / (1 + market_conditions['volatility'])
             position_size = min(BASE_POSITION_SIZE * confidence * volatility_factor, BASE_POSITION_SIZE) * portfolio_value
             
-            # Calculate entry price with slippage
+            # Calculate position size based on available capital
+            max_position = portfolio_value * BASE_POSITION_SIZE
+            actual_position = min(max_position, portfolio_value * 0.95)  # Never use more than 95% of portfolio
+            
+            # Calculate entry price with slippage and ensure enough capital for transaction costs
             entry_price = next_day['Open'] * (1 + SLIPPAGE) if predicted_direction == 'UP' else next_day['Open'] * (1 - SLIPPAGE)
+            transaction_cost = actual_position * TRANSACTION_COST
+            
+            # Adjust position size to account for transaction costs
+            actual_position = actual_position - (2 * transaction_cost)  # Account for both entry and exit
             
             # Calculate adaptive stop loss and take profit levels based on volatility
-            volatility_multiplier = 1 + market_conditions['volatility']
+            volatility_multiplier = 1 + (market_conditions['volatility'] * 0.5)  # Reduce volatility impact
             stop_loss = BASE_STOP_LOSS * volatility_multiplier
             take_profit = BASE_TAKE_PROFIT * volatility_multiplier
             
