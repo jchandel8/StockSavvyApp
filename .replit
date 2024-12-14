@@ -46,7 +46,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx react-native start --reset-cache --port 8081"
+args = "rm -rf node_modules/.cache && npx react-native start --reset-cache --port 8081"
 waitForPort = 8081
 
 [deployment]

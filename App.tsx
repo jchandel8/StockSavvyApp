@@ -1,5 +1,5 @@
 import React from 'react';
-import { ViewStyle } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -9,7 +9,6 @@ import StockDetailScreen from './src/screens/StockDetailScreen';
 import BacktestScreen from './src/screens/BacktestScreen';
 import NewsScreen from './src/screens/NewsScreen';
 
-// Define navigation params
 export type RootStackParamList = {
   Home: undefined;
   StockDetail: { symbol: string };
@@ -19,16 +18,12 @@ export type RootStackParamList = {
 
 const Stack = createStackNavigator<RootStackParamList>();
 
-const rootViewStyle: ViewStyle = {
-  flex: 1,
-};
-
 const App = () => {
   return (
-    <GestureHandlerRootView style={rootViewStyle}>
+    <GestureHandlerRootView style={styles.container}>
       <SafeAreaProvider>
         <NavigationContainer>
-          <Stack.Navigator 
+          <Stack.Navigator
             initialRouteName="Home"
             screenOptions={{
               headerStyle: {
@@ -49,7 +44,7 @@ const App = () => {
               name="StockDetail" 
               component={StockDetailScreen} 
               options={({ route }) => ({ 
-                title: route.params.symbol || 'Stock Detail',
+                title: route.params.symbol,
                 headerBackTitleVisible: false,
               })}
             />
@@ -75,5 +70,12 @@ const App = () => {
     </GestureHandlerRootView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0E1117',
+  },
+});
 
 export default App;

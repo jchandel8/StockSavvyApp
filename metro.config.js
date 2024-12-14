@@ -13,11 +13,14 @@ module.exports = (async () => {
       ...resolver,
       assetExts: resolver.assetExts.filter((ext) => ext !== 'svg'),
       sourceExts: [...resolver.sourceExts, 'svg'],
-      // Ensure we're not picking up duplicate modules from node_modules
-      blacklistRE: /\.cache\/.*$/
+      blockList: [
+        // Exclude python-related files that cause conflicts
+        /\.pythonlibs\/.*/,
+        /\.cache\/.*/
+      ]
     },
     watchFolders: [__dirname],
-    // Exclude cache directories from Metro
-    resetCache: true
+    resetCache: true,
+    maxWorkers: 2
   };
 })();
