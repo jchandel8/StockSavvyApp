@@ -1,4 +1,5 @@
 import React from 'react';
+import { ViewStyle } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -8,12 +9,23 @@ import StockDetailScreen from './src/screens/StockDetailScreen';
 import BacktestScreen from './src/screens/BacktestScreen';
 import NewsScreen from './src/screens/NewsScreen';
 
-// Initialize navigation
-const Stack = createStackNavigator();
+// Define navigation params
+export type RootStackParamList = {
+  Home: undefined;
+  StockDetail: { symbol: string };
+  Backtest: { symbol: string };
+  News: { symbol: string };
+};
+
+const Stack = createStackNavigator<RootStackParamList>();
+
+const rootViewStyle: ViewStyle = {
+  flex: 1,
+};
 
 const App = () => {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={rootViewStyle}>
       <SafeAreaProvider>
         <NavigationContainer>
           <Stack.Navigator 
@@ -37,7 +49,7 @@ const App = () => {
               name="StockDetail" 
               component={StockDetailScreen} 
               options={({ route }) => ({ 
-                title: route.params?.symbol || 'Stock Detail',
+                title: route.params.symbol || 'Stock Detail',
                 headerBackTitleVisible: false,
               })}
             />
