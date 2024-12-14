@@ -16,4 +16,5 @@ dependencies = [
     "python-dateutil",
     "python-dotenv",
     "ta",
+    "tensorflow>=2.18.0",
 ]
