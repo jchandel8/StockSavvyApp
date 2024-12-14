@@ -1,41 +1,35 @@
 const { getDefaultConfig } = require('@react-native/metro-config');
 
 module.exports = (async () => {
-  const config = await getDefaultConfig(__dirname);
-  const { transformer, resolver } = config;
-
+  const defaultConfig = await getDefaultConfig(__dirname);
+  
   return {
+    ...defaultConfig,
     transformer: {
-      ...transformer,
+      ...defaultConfig.transformer,
       babelTransformerPath: require.resolve('react-native-svg-transformer'),
       experimentalImportSupport: false,
       inlineRequires: true,
     },
     resolver: {
-      ...resolver,
-      assetExts: resolver.assetExts.filter((ext) => ext !== 'svg'),
-      sourceExts: [...resolver.sourceExts, 'svg'],
+      ...defaultConfig.resolver,
+      assetExts: defaultConfig.resolver.assetExts.filter((ext) => ext !== 'svg'),
+      sourceExts: [...defaultConfig.resolver.sourceExts, 'svg', 'ts', 'tsx'],
+      platforms: ['ios', 'android', 'web'],
       blockList: [
-        /\.pythonlibs\/.*/,
-        /\.cache\/.*/,
         /\.git\/.*/,
-        /\.venv\/.*/
+        /\.cache\/.*/,
+        /node_modules\/.*\/node_modules\/react-native\/.*/,
       ],
-      extraNodeModules: new Proxy({}, {
-        get: (target, name) => {
-          return name in target ? target[name] : process.cwd() + '/node_modules/' + name;
-        }
-      })
     },
     watchFolders: [__dirname],
     resetCache: true,
-    maxWorkers: 2,
+    maxWorkers: 4,
     server: {
       port: 8081,
       enhanceMiddleware: (middleware) => {
         return (req, res, next) => {
-          // Set higher timeout
-          res.setTimeout(60000);
+          res.setTimeout(120000);
           return middleware(req, res, next);
         };
       }
