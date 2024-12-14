@@ -2,8 +2,8 @@ import pandas as pd
 import numpy as np
 import streamlit as st
 from sklearn.preprocessing import MinMaxScaler
-from keras.models import Sequential
-from keras.layers import LSTM, Dense, Dropout
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
 import ta
 import logging
 
@@ -19,18 +19,15 @@ from utils.technical_analysis import (
     calculate_mvrv_ratio
 )
 
-def build_lstm_model(input_shape):
-    """Build and return an LSTM model for price prediction."""
-    model = Sequential([
-        LSTM(64, return_sequences=True, input_shape=input_shape),
-        Dropout(0.2),
-        LSTM(32),
-        Dropout(0.2),
-        Dense(16, activation='relu'),
-        Dense(1)
-    ])
-    model.compile(optimizer='adam', loss='huber')
-    return model
+def build_model():
+    """Build and return a Random Forest model for price prediction."""
+    return RandomForestRegressor(
+        n_estimators=100,
+        max_depth=10,
+        min_samples_split=5,
+        min_samples_leaf=2,
+        random_state=42
+    )
 
 def prepare_features(data: pd.DataFrame) -> pd.DataFrame:
     """Prepare comprehensive feature set for prediction."""
@@ -86,12 +83,12 @@ def calculate_prediction(data: pd.DataFrame, timeframe: str = 'short_term', look
         X, y = np.array(X), np.array(y)
         
         # Build and train model
-        model = build_lstm_model((look_back, scaled_features.shape[1]))
-        model.fit(X, y, epochs=50, batch_size=32, verbose=0)
+        model = build_model()
+        model.fit(X, y)
         
         # Make prediction
-        last_sequence = scaled_features[-look_back:].reshape(1, look_back, scaled_features.shape[1])
-        prediction_probability = model.predict(last_sequence)[0][0]
+        last_sequence = scaled_features[-look_back:].reshape(1, -1)
+        prediction_probability = model.predict(last_sequence)[0]
         
         # Calculate confidence factors
         volatility = features['atr'].iloc[-1] / data['Close'].iloc[-1]

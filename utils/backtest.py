@@ -66,8 +66,12 @@ def backtest_prediction_model(df: pd.DataFrame, initial_investment: float) -> di
         volatility_factor = 1 / (1 + market_conditions['volatility'])
         position_size = min(BASE_POSITION_SIZE * confidence * volatility_factor, BASE_POSITION_SIZE) * portfolio_value
         
+        # Ensure we have required price data
+        if 'Open' not in next_day or 'High' not in next_day or 'Low' not in next_day or 'Close' not in next_day:
+            continue
+
         # Calculate entry price with slippage
-        entry_price = next_day['Open'] * (1 + SLIPPAGE) if predicted_direction == 'UP' else next_day['Open'] * (1 - SLIPPAGE)
+        entry_price = float(next_day['Open']) * (1 + SLIPPAGE) if predicted_direction == 'UP' else float(next_day['Open']) * (1 - SLIPPAGE)
         
         # Calculate adaptive stop loss and take profit levels based on volatility
         volatility_multiplier = 1 + market_conditions['volatility']
@@ -140,18 +144,18 @@ def backtest_prediction_model(df: pd.DataFrame, initial_investment: float) -> di
         # Record history with proper price fields and trade details
         trade_record = {
             'date': df.index[i+1],
-            'portfolio_value': portfolio_value,
+            'portfolio_value': float(portfolio_value),
             'predicted_direction': predicted_direction,
-            'prediction_confidence': confidence,
-            'open_price': next_day['Open'],
-            'high_price': next_day['High'],
-            'low_price': next_day['Low'],
-            'close_price': next_day['Close'],
-            'position_size': position_size if trade_taken else 0,
-            'entry_price': entry_price if trade_taken else next_day['Open'],
-            'exit_price': exit_price if trade_taken else next_day['Close'],
-            'trade_profit': trade_profit if trade_taken else 0,
-            'trade_taken': trade_taken
+            'prediction_confidence': float(confidence),
+            'open_price': float(next_day['Open']),
+            'high_price': float(next_day['High']),
+            'low_price': float(next_day['Low']),
+            'close_price': float(next_day['Close']),
+            'position_size': float(position_size) if trade_taken else 0.0,
+            'entry_price': float(entry_price) if trade_taken else float(next_day['Open']),
+            'exit_price': float(exit_price) if trade_taken else float(next_day['Close']),
+            'trade_profit': float(trade_profit) if trade_taken else 0.0,
+            'trade_taken': bool(trade_taken)
         }
         history.append(trade_record)
     
