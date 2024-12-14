@@ -151,6 +151,7 @@ def calculate_trend_strength(data: pd.DataFrame) -> float:
         return 0.0
 
 def predict_price_movement(data: pd.DataFrame, ticker: str) -> dict:
+    """Generate price predictions for multiple timeframes using LSTM model."""
     if data is None or len(data) < 50:
         return {
             'short_term': {'timeframe': '1 Week', 'direction': 'NEUTRAL', 'confidence': 0.0,
@@ -175,33 +176,30 @@ def predict_price_movement(data: pd.DataFrame, ticker: str) -> dict:
         }
         
         for timeframe in timeframes:
-            # Get timeframe-specific prediction
+            # Get prediction for current timeframe
             prediction_results = calculate_prediction(data, timeframe=timeframe)
             
-            # Calculate volatility adjustment
-            volatility = np.std(data['Close'].pct_change().dropna())
-            volatility_factor = {
-                'daily': 0.5,
-                'short_term': 1.0,
-                'medium_term': 1.5,
-                'long_term': 2.0
-            }[timeframe]
-            
+            # Skip if prediction doesn't meet confidence threshold
+            if not prediction_results:
+                continue
+                
             forecast = prediction_results.get('forecast', last_price)
             confidence = prediction_results.get('confidence', 0.5)
+            direction = prediction_results.get('direction', 'NEUTRAL')
             
-            # Adjust range based on timeframe
+            # Calculate volatility-adjusted range
+            volatility = data['Close'].rolling(window=20).std().iloc[-1] / last_price
             range_factor = {
                 'daily': 0.01,
                 'short_term': 0.02,
                 'medium_term': 0.04,
                 'long_term': 0.06
             }[timeframe]
-            predicted_range = forecast * range_factor * (1 + volatility)
+            predicted_range = last_price * range_factor * (1 + volatility)
             
             predictions[timeframe] = {
                 'timeframe': periods[timeframe],
-                'direction': 'UP' if forecast > last_price else 'DOWN',
+                'direction': direction,
                 'confidence': confidence,
                 'predicted_high': forecast + predicted_range,
                 'predicted_low': forecast - predicted_range,
@@ -209,6 +207,7 @@ def predict_price_movement(data: pd.DataFrame, ticker: str) -> dict:
             }
             
     except Exception as e:
+        logger.error(f"Error in prediction: {str(e)}")
         st.error(f"Error in prediction: {str(e)}")
         
     return predictions
@@ -219,6 +218,7 @@ def get_prediction(df: pd.DataFrame, ticker: str) -> dict:
     try:
         return predict_price_movement(df, ticker)
     except Exception as e:
+        logger.error(f"Error generating prediction: {str(e)}")
         st.error(f"Error generating prediction: {str(e)}")
         return {
             'short_term': {
