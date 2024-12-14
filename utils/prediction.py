@@ -29,7 +29,7 @@ def build_model():
         random_state=42
     )
 
-def prepare_features(data: pd.DataFrame) -> pd.DataFrame:
+def prepare_features(data: pd.DataFrame, look_back: int = 10) -> tuple:
     """Prepare comprehensive feature set for prediction."""
     features = pd.DataFrame()
     
@@ -56,7 +56,19 @@ def prepare_features(data: pd.DataFrame) -> pd.DataFrame:
     features['sma_50'] = data['Close'].rolling(50).mean()
     features['trend'] = np.where(features['sma_20'] > features['sma_50'], 1, -1)
     
-    return features.fillna(0)
+    # Fill NaN values
+    features = features.fillna(0)
+    
+    # Prepare X and y
+    X, y = [], []
+    for i in range(look_back, len(features)):
+        # Flatten the look_back window of features into a 1D array
+        feature_window = features.iloc[i-look_back:i].values.flatten()
+        X.append(feature_window)
+        # Target is 1 if price goes up, 0 if it goes down
+        y.append(1 if data['Close'].iloc[i] > data['Close'].iloc[i-1] else 0)
+    
+    return np.array(X), np.array(y)
 
 def calculate_prediction(data: pd.DataFrame, timeframe: str = 'short_term', look_back: int = None) -> dict:
     # Set look_back periods based on timeframe
@@ -69,26 +81,27 @@ def calculate_prediction(data: pd.DataFrame, timeframe: str = 'short_term', look
         }.get(timeframe, 30)
     
     try:
-        # Prepare features
-        features = prepare_features(data)
+        # Prepare features and target
+        X, y = prepare_features(data, look_back=look_back)
+        if len(X) == 0:
+            return None
+            
+        # Scale the features
         scaler = MinMaxScaler(feature_range=(0, 1))
-        scaled_features = scaler.fit_transform(features)
-        
-        # Prepare sequences
-        X, y = [], []
-        for i in range(look_back, len(scaled_features)):
-            X.append(scaled_features[i-look_back:i])
-            y.append(1 if data['Close'].iloc[i] > data['Close'].iloc[i-1] else 0)
-        
-        X, y = np.array(X), np.array(y)
+        X_scaled = scaler.fit_transform(X)
         
         # Build and train model
         model = build_model()
-        model.fit(X, y)
+        model.fit(X_scaled, y)
         
-        # Make prediction
-        last_sequence = scaled_features[-look_back:].reshape(1, -1)
-        prediction_probability = model.predict(last_sequence)[0]
+        # Prepare last sequence for prediction
+        last_features = prepare_features(data.iloc[-look_back:], look_back=1)[0]
+        if len(last_features) == 0:
+            return None
+            
+        # Scale and reshape the last sequence
+        last_sequence_scaled = scaler.transform(last_features.reshape(1, -1))
+        prediction_probability = model.predict_proba(last_sequence_scaled)[0][1]
         
         # Calculate confidence factors
         volatility = features['atr'].iloc[-1] / data['Close'].iloc[-1]
