@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -27,62 +27,67 @@ const MyTheme = {
     card: '#262730',
     text: '#FFFFFF',
     border: '#262730',
+    notification: '#FF4B4B',
   },
+  dark: true,
 };
 
 const App = () => {
   return (
-    <View style={styles.container}>
-      <GestureHandlerRootView style={styles.container}>
-        <SafeAreaProvider>
-          <NavigationContainer theme={MyTheme}>
-            <Stack.Navigator
-              initialRouteName="Home"
-              screenOptions={{
-                headerStyle: {
-                  backgroundColor: '#262730',
-                },
-                headerTintColor: '#fff',
-                headerTitleStyle: {
-                  fontWeight: 'bold',
-                },
-                cardStyle: { backgroundColor: '#0E1117' },
+    <GestureHandlerRootView style={styles.container}>
+      <SafeAreaProvider>
+        <NavigationContainer theme={MyTheme}>
+          <Stack.Navigator
+            initialRouteName="Home"
+            screenOptions={{
+              headerStyle: {
+                backgroundColor: '#262730',
+                elevation: 0,
+                shadowOpacity: 0,
+              },
+              headerTintColor: '#fff',
+              headerTitleStyle: {
+                fontWeight: 'bold',
+              },
+              cardStyle: { backgroundColor: '#0E1117' },
+            }}
+          >
+            <Stack.Screen 
+              name="Home" 
+              component={HomeScreen} 
+              options={{ 
+                title: 'Stock Analysis',
+                headerShown: true,
               }}
-            >
-              <Stack.Screen 
-                name="Home" 
-                component={HomeScreen} 
-                options={{ title: 'Stock Analysis' }}
-              />
-              <Stack.Screen 
-                name="StockDetail" 
-                component={StockDetailScreen} 
-                options={({ route }) => ({ 
-                  title: route.params.symbol,
-                  headerBackTitleVisible: false,
-                })}
-              />
-              <Stack.Screen 
-                name="Backtest" 
-                component={BacktestScreen} 
-                options={{ 
-                  title: 'Backtesting',
-                  headerBackTitleVisible: false,
-                }}
-              />
-              <Stack.Screen 
-                name="News" 
-                component={NewsScreen} 
-                options={{ 
-                  title: 'Market News',
-                  headerBackTitleVisible: false,
-                }}
-              />
-            </Stack.Navigator>
-          </NavigationContainer>
-        </SafeAreaProvider>
-      </GestureHandlerRootView>
-    </View>
+            />
+            <Stack.Screen 
+              name="StockDetail" 
+              component={StockDetailScreen} 
+              options={({ route }) => ({ 
+                title: route.params.symbol,
+                headerBackTitleVisible: false,
+              })}
+            />
+            <Stack.Screen 
+              name="Backtest" 
+              component={BacktestScreen} 
+              options={{ 
+                title: 'Backtesting',
+                headerBackTitleVisible: false,
+              }}
+            />
+            <Stack.Screen 
+              name="News" 
+              component={NewsScreen} 
+              options={{ 
+                title: 'Market News',
+                headerBackTitleVisible: false,
+              }}
+            />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 };
 
