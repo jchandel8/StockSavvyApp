@@ -33,15 +33,22 @@ def backtest_prediction_model(df: pd.DataFrame, initial_investment: float) -> di
     window_size = 30
     
     for i in range(window_size, len(df)-1):
-        # Get data for current and next day
-        historical_data = df.iloc[:i]
-        next_day = df.iloc[i+1]
-        current_day = df.iloc[i]
-        
-        # Get prediction for next day
-        prediction = calculate_prediction(historical_data, timeframe='daily')
-        if not prediction:
-            continue
+        try:
+            # Get data for current and next day
+            historical_data = df.iloc[:i]
+            next_day = df.iloc[i+1]
+            current_day = df.iloc[i]
+            
+            # Get prediction for next day
+            prediction = calculate_prediction(historical_data, timeframe='daily')
+            
+            # Skip if no valid prediction
+            if not prediction or not isinstance(prediction, dict):
+                continue
+                
+            # Ensure prediction contains required fields
+            if not all(key in prediction for key in ['forecast', 'confidence', 'direction']):
+                continue
         
         forecast = prediction.get('forecast', 0)
         confidence = prediction.get('confidence', 0)
