@@ -157,15 +157,16 @@ if ticker:
                             trades_df['profit_percentage'] = (trades_df['trade_profit'] / trades_df['open_price']) * 100
                             
                             # Format the table data
+                            # Format trades table with proper price fields and calculations
                             trades_table = pd.DataFrame({
                                 'Date': trades_df['date'],
                                 'Prediction': trades_df['predicted_direction'],
                                 'Portfolio Value Before': trades_df['portfolio_value'].shift(1).fillna(initial_investment).map('${:,.2f}'.format),
                                 'Opening Price': trades_df['open_price'].map('${:,.2f}'.format),
-                                'Entry Price': trades_df.apply(lambda x: '${:,.2f}'.format(x['open_price']), axis=1),
-                                'Exit Price': trades_df.apply(lambda x: '${:,.2f}'.format(x['close_price']), axis=1),
+                                'Entry Price': trades_df['entry_price'].map('${:,.2f}'.format),
+                                'Exit Price': trades_df['exit_price'].map('${:,.2f}'.format),
                                 'Profit($)': trades_df['trade_profit'].map('${:,.2f}'.format),
-                                'Profit(%)': (trades_df['trade_profit'] / trades_df['position_size'] * 100).map('{:,.2f}%'.format),
+                                'Profit(%)': trades_df.apply(lambda x: '{:,.2f}%'.format((x['trade_profit'] / x['position_size'] * 100) if x['position_size'] > 0 else 0), axis=1),
                                 'Portfolio Value After': trades_df['portfolio_value'].map('${:,.2f}'.format)
                             })
                             
