@@ -32,7 +32,7 @@ const MyTheme = {
   dark: true,
 };
 
-const App = () => {
+export default function App() {
   return (
     <GestureHandlerRootView style={styles.container}>
       <SafeAreaProvider>
@@ -42,14 +42,12 @@ const App = () => {
             screenOptions={{
               headerStyle: {
                 backgroundColor: '#262730',
-                elevation: 0,
-                shadowOpacity: 0,
               },
               headerTintColor: '#fff',
               headerTitleStyle: {
                 fontWeight: 'bold',
               },
-              cardStyle: { backgroundColor: '#0E1117' },
+              contentStyle: { backgroundColor: '#0E1117' },
             }}
           >
             <Stack.Screen 
@@ -89,7 +87,7 @@ const App = () => {
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -97,5 +95,3 @@ const styles = StyleSheet.create({
     backgroundColor: '#0E1117',
   },
 });
-
-export default App;
