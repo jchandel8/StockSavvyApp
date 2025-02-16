@@ -17,4 +17,5 @@ dependencies = [
     "python-dotenv",
     "ta",
     "tensorflow>=2.18.0",
+    "twilio>=9.4.5",
 ]
