@@ -487,183 +487,344 @@ if ticker:
         predictions = get_prediction(df, ticker)
         
         # Display prediction cards in columns
-        # Import the prediction card component
-        from components.prediction_card import create_prediction_card
+        # Import the native prediction card component
+        from components.native_prediction_card import create_native_prediction_card
         
         # First row - 1 Day and 1 Week
         col1, col2 = st.columns(2)
         
         # 1 Day and 1 Week forecast
         with col1:
-            # Get 1-day prediction data
-            one_day_pred = predictions.get("short_term", {})
-            pred_price = one_day_pred.get("price", current_price * 1.01)  # Default to 1% up if missing
-            confidence = one_day_pred.get("confidence", 50.0)
-            direction = one_day_pred.get("direction", "UP")
-            pred_high = one_day_pred.get("high", pred_price * 1.01)
-            pred_low = one_day_pred.get("low", pred_price * 0.99)
+            with st.container():
+                st.markdown("##### 1 Day Forecast")
+                # Get 1-day prediction data
+                one_day_pred = predictions.get("short_term", {})
+                pred_price = one_day_pred.get("price", current_price * 1.01)  # Default to 1% up if missing
+                confidence = one_day_pred.get("confidence", 50.0)
+                direction = one_day_pred.get("direction", "UP")
+                pred_high = one_day_pred.get("high", pred_price * 1.01)
+                pred_low = one_day_pred.get("low", pred_price * 0.99)
+                
+                # Create the native card
+                price_change = ((pred_price - current_price) / current_price) * 100
+                price_change_sign = "+" if price_change >= 0 else ""
+                
+                # Create direction badge
+                if direction == "UP":
+                    st.success("UP")
+                elif direction == "DOWN":
+                    st.error("DOWN")
+                else:
+                    st.info("NEUTRAL")
+                
+                # Confidence meter
+                st.write("Confidence:")
+                st.progress(confidence/100.0)
+                st.caption(f"{confidence:.1f}%")
+                
+                # Target price
+                col1a, col1b = st.columns(2)
+                with col1a:
+                    st.write("**Target Price:**")
+                with col1b:
+                    if price_change >= 0:
+                        st.write(f"${pred_price:.2f} **(+{price_change:.2f}%)**")
+                    else:
+                        st.write(f"${pred_price:.2f} **({price_change:.2f}%)**")
+                
+                # High/Low predictions
+                col1c, col1d = st.columns(2)
+                with col1c:
+                    st.write("**Predicted High:**")
+                    st.write(f"${pred_high:.2f}")
+                with col1d:
+                    st.write("**Predicted Low:**")
+                    st.write(f"${pred_low:.2f}")
+                
+            # Add space between cards
+            st.markdown("---")
             
-            # Create the card with our component
-            create_prediction_card(
-                title="1 Day Forecast", 
-                direction=direction, 
-                confidence=confidence, 
-                current_price=current_price, 
-                pred_price=pred_price, 
-                pred_high=pred_high,
-                pred_low=pred_low
-            )
-            
-            # Get 1-week prediction data
-            one_week_pred = predictions.get("medium_term", {})
-            pred_price_week = one_week_pred.get("price", current_price * 1.02)  # Default to 2% up if missing
-            confidence_week = one_week_pred.get("confidence", 50.0)
-            direction_week = one_week_pred.get("direction", "UP")
-            pred_high_week = one_week_pred.get("high", pred_price_week * 1.02)
-            pred_low_week = one_week_pred.get("low", pred_price_week * 0.98)
-            
-            # Create 1-week card
-            create_prediction_card(
-                title="1 Week Forecast", 
-                direction=direction_week, 
-                confidence=confidence_week, 
-                current_price=current_price, 
-                pred_price=pred_price_week, 
-                pred_high=pred_high_week,
-                pred_low=pred_low_week
-            )
+            with st.container():
+                st.markdown("##### 1 Week Forecast")
+                # Get 1-week prediction data
+                one_week_pred = predictions.get("medium_term", {})
+                pred_price_week = one_week_pred.get("price", current_price * 1.02)  # Default to 2% up if missing
+                confidence_week = one_week_pred.get("confidence", 50.0)
+                direction_week = one_week_pred.get("direction", "UP")
+                pred_high_week = one_week_pred.get("high", pred_price_week * 1.02)
+                pred_low_week = one_week_pred.get("low", pred_price_week * 0.98)
+                
+                # Price change calculation
+                price_change_week = ((pred_price_week - current_price) / current_price) * 100
+                price_change_sign_week = "+" if price_change_week >= 0 else ""
+                
+                # Create direction badge
+                if direction_week == "UP":
+                    st.success("UP")
+                elif direction_week == "DOWN":
+                    st.error("DOWN")
+                else:
+                    st.info("NEUTRAL")
+                
+                # Confidence meter
+                st.write("Confidence:")
+                st.progress(confidence_week/100.0)
+                st.caption(f"{confidence_week:.1f}%")
+                
+                # Target price
+                col1e, col1f = st.columns(2)
+                with col1e:
+                    st.write("**Target Price:**")
+                with col1f:
+                    if price_change_week >= 0:
+                        st.write(f"${pred_price_week:.2f} **(+{price_change_week:.2f}%)**")
+                    else:
+                        st.write(f"${pred_price_week:.2f} **({price_change_week:.2f}%)**")
+                
+                # High/Low predictions
+                col1g, col1h = st.columns(2)
+                with col1g:
+                    st.write("**Predicted High:**")
+                    st.write(f"${pred_high_week:.2f}")
+                with col1h:
+                    st.write("**Predicted Low:**")
+                    st.write(f"${pred_low_week:.2f}")
         
         # 1 Month and 3 Months forecast
         with col2:
-            # Get 1-month prediction data
-            one_month_pred = predictions.get("long_term", {})
-            pred_price_month = one_month_pred.get("price", current_price * 1.03)  # Default to 3% up if missing
-            confidence_month = one_month_pred.get("confidence", 60.0)
-            direction_month = one_month_pred.get("direction", "UP")
-            pred_high_month = one_month_pred.get("high", pred_price_month * 1.04)
-            pred_low_month = one_month_pred.get("low", pred_price_month * 0.96)
+            with st.container():
+                st.markdown("##### 1 Month Forecast")
+                # Get 1-month prediction data
+                one_month_pred = predictions.get("long_term", {})
+                pred_price_month = one_month_pred.get("price", current_price * 1.03)  # Default to 3% up if missing
+                confidence_month = one_month_pred.get("confidence", 60.0)
+                direction_month = one_month_pred.get("direction", "UP")
+                pred_high_month = one_month_pred.get("high", pred_price_month * 1.04)
+                pred_low_month = one_month_pred.get("low", pred_price_month * 0.96)
+                
+                # Price change calculation
+                price_change_month = ((pred_price_month - current_price) / current_price) * 100
+                price_change_sign_month = "+" if price_change_month >= 0 else ""
+                
+                # Create direction badge
+                if direction_month == "UP":
+                    st.success("UP")
+                elif direction_month == "DOWN":
+                    st.error("DOWN")
+                else:
+                    st.info("NEUTRAL")
+                
+                # Confidence meter
+                st.write("Confidence:")
+                st.progress(confidence_month/100.0)
+                st.caption(f"{confidence_month:.1f}%")
+                
+                # Target price
+                col2a, col2b = st.columns(2)
+                with col2a:
+                    st.write("**Target Price:**")
+                with col2b:
+                    if price_change_month >= 0:
+                        st.write(f"${pred_price_month:.2f} **(+{price_change_month:.2f}%)**")
+                    else:
+                        st.write(f"${pred_price_month:.2f} **({price_change_month:.2f}%)**")
+                
+                # High/Low predictions
+                col2c, col2d = st.columns(2)
+                with col2c:
+                    st.write("**Predicted High:**")
+                    st.write(f"${pred_high_month:.2f}")
+                with col2d:
+                    st.write("**Predicted Low:**")
+                    st.write(f"${pred_low_month:.2f}")
             
-            # Create 1-month card
-            create_prediction_card(
-                title="1 Month Forecast", 
-                direction=direction_month, 
-                confidence=confidence_month, 
-                current_price=current_price, 
-                pred_price=pred_price_month, 
-                pred_high=pred_high_month,
-                pred_low=pred_low_month
-            )
+            # Add space between cards
+            st.markdown("---")
             
-            # Get 3-months prediction data
-            three_month_pred = predictions.get("extended_term", {})
-            pred_price_3m = three_month_pred.get("price", current_price * 1.05)  # Default to 5% up if missing
-            confidence_3m = three_month_pred.get("confidence", 55.0)
-            direction_3m = three_month_pred.get("direction", "UP")
-            pred_high_3m = three_month_pred.get("high", pred_price_3m * 1.07)
-            pred_low_3m = three_month_pred.get("low", pred_price_3m * 0.93)
-            
-            # Create 3-month card
-            create_prediction_card(
-                title="3 Months Forecast", 
-                direction=direction_3m, 
-                confidence=confidence_3m, 
-                current_price=current_price, 
-                pred_price=pred_price_3m, 
-                pred_high=pred_high_3m,
-                pred_low=pred_low_3m
-            )
+            with st.container():
+                st.markdown("##### 3 Months Forecast")
+                # Get 3-months prediction data
+                three_month_pred = predictions.get("extended_term", {})
+                pred_price_3m = three_month_pred.get("price", current_price * 1.05)  # Default to 5% up if missing
+                confidence_3m = three_month_pred.get("confidence", 55.0)
+                direction_3m = three_month_pred.get("direction", "UP")
+                pred_high_3m = three_month_pred.get("high", pred_price_3m * 1.07)
+                pred_low_3m = three_month_pred.get("low", pred_price_3m * 0.93)
+                
+                # Price change calculation
+                price_change_3m = ((pred_price_3m - current_price) / current_price) * 100
+                price_change_sign_3m = "+" if price_change_3m >= 0 else ""
+                
+                # Create direction badge
+                if direction_3m == "UP":
+                    st.success("UP")
+                elif direction_3m == "DOWN":
+                    st.error("DOWN")
+                else:
+                    st.info("NEUTRAL")
+                
+                # Confidence meter
+                st.write("Confidence:")
+                st.progress(confidence_3m/100.0)
+                st.caption(f"{confidence_3m:.1f}%")
+                
+                # Target price
+                col2e, col2f = st.columns(2)
+                with col2e:
+                    st.write("**Target Price:**")
+                with col2f:
+                    if price_change_3m >= 0:
+                        st.write(f"${pred_price_3m:.2f} **(+{price_change_3m:.2f}%)**")
+                    else:
+                        st.write(f"${pred_price_3m:.2f} **({price_change_3m:.2f}%)**")
+                
+                # High/Low predictions
+                col2g, col2h = st.columns(2)
+                with col2g:
+                    st.write("**Predicted High:**")
+                    st.write(f"${pred_high_3m:.2f}")
+                with col2h:
+                    st.write("**Predicted Low:**")
+                    st.write(f"${pred_low_3m:.2f}")
         
         # 6 Months forecast
+        st.markdown("---")
         col1, col2 = st.columns([1, 1])
         with col1:
-            # Get 6-months prediction data
-            six_month_pred = predictions.get("long_extended_term", {})
-            pred_price_6m = six_month_pred.get("price", current_price * 1.07)  # Default to 7% up if missing
-            confidence_6m = six_month_pred.get("confidence", 51.9)
-            direction_6m = six_month_pred.get("direction", "UP")
-            pred_high_6m = six_month_pred.get("high", pred_price_6m * 1.10)
-            pred_low_6m = six_month_pred.get("low", pred_price_6m * 0.90)
-            
-            # Create 6-month card
-            create_prediction_card(
-                title="6 Months Forecast", 
-                direction=direction_6m, 
-                confidence=confidence_6m, 
-                current_price=current_price, 
-                pred_price=pred_price_6m, 
-                pred_high=pred_high_6m,
-                pred_low=pred_low_6m
-            )
+            with st.container():
+                st.markdown("##### 6 Months Forecast")
+                # Get 6-months prediction data
+                six_month_pred = predictions.get("long_extended_term", {})
+                pred_price_6m = six_month_pred.get("price", current_price * 1.07)  # Default to 7% up if missing
+                confidence_6m = six_month_pred.get("confidence", 51.9)
+                direction_6m = six_month_pred.get("direction", "UP")
+                pred_high_6m = six_month_pred.get("high", pred_price_6m * 1.10)
+                pred_low_6m = six_month_pred.get("low", pred_price_6m * 0.90)
+                
+                # Price change calculation
+                price_change_6m = ((pred_price_6m - current_price) / current_price) * 100
+                price_change_sign_6m = "+" if price_change_6m >= 0 else ""
+                
+                # Create direction badge
+                if direction_6m == "UP":
+                    st.success("UP")
+                elif direction_6m == "DOWN":
+                    st.error("DOWN")
+                else:
+                    st.info("NEUTRAL")
+                
+                # Confidence meter
+                st.write("Confidence:")
+                st.progress(confidence_6m/100.0)
+                st.caption(f"{confidence_6m:.1f}%")
+                
+                # Target price
+                col3a, col3b = st.columns(2)
+                with col3a:
+                    st.write("**Target Price:**")
+                with col3b:
+                    if price_change_6m >= 0:
+                        st.write(f"${pred_price_6m:.2f} **(+{price_change_6m:.2f}%)**")
+                    else:
+                        st.write(f"${pred_price_6m:.2f} **({price_change_6m:.2f}%)**")
+                
+                # High/Low predictions
+                col3c, col3d = st.columns(2)
+                with col3c:
+                    st.write("**Predicted High:**")
+                    st.write(f"${pred_high_6m:.2f}")
+                with col3d:
+                    st.write("**Predicted Low:**")
+                    st.write(f"${pred_low_6m:.2f}")
     
     # News Tab
     with tabs[2]:
-        # Sample news data for design purposes
-        news_data = [
-            {
-                "title": "TSMC Confident Amid Trump Tariff Turmoil: CEO CC Wei Says No Change In Customer Behavior",
-                "subtitle": "Despite Nvidia H20 Chip Curbs - NVIDIA (NASDAQ:NVDA), Apple (NASDAQ:AAPL)",
-                "content": "Taiwan Semiconductor Manufacturing Co. Ltd. TSM remains optimistic despite ongoing geopolitical tensions. CEO CC Wei stated that customer behavior has not changed, even amid recent challenges such as the Nvidia Corporation NVDA H20 chip facing clamdown and tariff-related uncertainties.",
-                "source": "Benzinga",
-                "sentiment": "Neutral",
-                "date": "4/17/2025"
-            },
-            {
-                "title": "Top Analyst Reports for Apple, Philip Morris & Sony",
-                "subtitle": "",
-                "content": "Today's Research Daily features new research reports on 16 major stocks, including Bank of Apple Inc. (AAPL), Philip Morris International Inc. (PM) and Sony Group Corp. (SONY), as well as a micro-cap stock Vaso Corp. (VASO).",
-                "source": "Zacks Commentary",
-                "sentiment": "Neutral",
-                "date": "4/17/2025"
-            },
-            {
-                "title": "Google Scores Partial Win In Antitrust Case But Faces Setback On Publisher Tools",
-                "subtitle": "Alphabet (NASDAQ:GOOGL)",
-                "content": "US Department of Justice wins antitrust case against Google, ruling it maintained a monopoly in ad tech through anticompetitive practices. Google faces appeals after court dismisses some antitrust claims but supports the Justice Department's push for a breakup.",
-                "source": "Benzinga",
-                "sentiment": "Neutral",
-                "date": "4/17/2025"
-            },
-            {
-                "title": "Temu And Shein To Raise Prices Amid US Tariffs, Slash Ad Spend On Apple, Meta",
-                "subtitle": "PDD Holdings (NASDAQ:PDD)",
-                "content": "Temu and Shein to raise prices starting April 26, shifting tariff burden onto consumers as U.S. tariffs on Chinese goods increase. Temu cuts U.S. ad spend and sees sharp decline in App Store rankings, while facing impact of 145% tariff on Chinese imports.",
-                "source": "Benzinga",
-                "sentiment": "Negative",
-                "date": "4/17/2025"
-            }
-        ]
+        # Get real news for the selected ticker
+        st.subheader(f"Latest News for {ticker}")
         
-        for article in news_data:
-            # Determine sentiment badge class
-            if article["sentiment"] == "Positive":
-                badge_class = "badge-green"
-            elif article["sentiment"] == "Negative":
-                badge_class = "badge-red"
-            else:
-                badge_class = "badge-neutral"
+        # Import the news fetching function
+        from utils.news_service import get_news
+        
+        # Get real news for the selected ticker
+        try:
+            news_articles = get_news(ticker, days=7)
             
-            st.markdown(f"""
-            <div class="card">
-                <h3 style="margin-top: 0; margin-bottom: 0.5rem;">{article["title"]}</h3>
-                <p style="color: #94a3b8; font-size: 0.875rem; margin-bottom: 1rem;">{article["subtitle"]}</p>
-                
-                <p style="margin-bottom: 1rem;">{article["content"]}</p>
-                
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <span class="badge badge-blue">Source: {article["source"]}</span>
-                        <span class="badge {badge_class}">Sentiment: {article["sentiment"]}</span>
-                    </div>
-                    <a href="#" style="color: #3b82f6; text-decoration: none; font-size: 0.875rem; display: flex; align-items: center; gap: 0.25rem;">
-                        Read more
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="5" y1="12" x2="19" y2="12"></line>
-                            <polyline points="12 5 19 12 12 19"></polyline>
-                        </svg>
-                    </a>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            if not news_articles:
+                st.info(f"No recent news found for {ticker}. Try another stock symbol.")
+            else:
+                for article in news_articles:
+                    with st.container():
+                        # Create a card-like container for each news article
+                        st.markdown(f"### {article['title']}")
+                        if article.get('subtitle'):
+                            st.caption(article['subtitle'])
+                        
+                        st.write(article['content'])
+                        
+                        # Source and sentiment in columns
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.write(f"Source: **{article['source']}**")
+                        with col2:
+                            # Color the sentiment
+                            if article['sentiment'] == 'Positive':
+                                st.success(f"Sentiment: {article['sentiment']}")
+                            elif article['sentiment'] == 'Negative':
+                                st.error(f"Sentiment: {article['sentiment']}")
+                            else:
+                                st.info(f"Sentiment: {article['sentiment']}")
+                        
+                        st.caption(f"Published: {article['date']}")
+                        st.markdown("---")
+                        
+        except Exception as e:
+            # Use sample news as fallback if API fails
+            st.warning(f"Could not retrieve real-time news data. Showing sample news instead.")
+            
+            # Sample news data for design purposes
+            news_data = [
+                {
+                    "title": f"Recent Developments for {ticker}",
+                    "subtitle": f"Latest market insights for {ticker}",
+                    "content": f"Market analysts have been closely watching {ticker}'s performance amid recent economic developments. The company's strategic initiatives and financial outlook remain key factors for investors.",
+                    "source": "Market Insights",
+                    "sentiment": "Neutral",
+                    "date": "4/18/2025"
+                },
+                {
+                    "title": f"Industry Trends Affecting {ticker}",
+                    "subtitle": "",
+                    "content": f"Recent industry trends are creating both challenges and opportunities for {ticker}. Analysts suggest monitoring the company's adaptation to these market conditions in the coming quarters.",
+                    "source": "Sector Analysis",
+                    "sentiment": "Neutral",
+                    "date": "4/17/2025"
+                }
+            ]
+            
+            for article in news_data:
+                with st.container():
+                    # Create a card-like container for each news article
+                    st.markdown(f"### {article['title']}")
+                    if article.get('subtitle'):
+                        st.caption(article['subtitle'])
+                    
+                    st.write(article['content'])
+                    
+                    # Source and sentiment in columns
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write(f"Source: **{article['source']}**")
+                    with col2:
+                        # Color the sentiment
+                        if article['sentiment'] == 'Positive':
+                            st.success(f"Sentiment: {article['sentiment']}")
+                        elif article['sentiment'] == 'Negative':
+                            st.error(f"Sentiment: {article['sentiment']}")
+                        else:
+                            st.info(f"Sentiment: {article['sentiment']}")
+                    
+                    st.caption(f"Published: {article['date']}")
+                    st.markdown("---")
     
     # Backtesting Tab
     with tabs[3]:

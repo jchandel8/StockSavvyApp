@@ -1,0 +1,189 @@
+1 Day Forecast
+UP
+<div>
+    <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+        <span style="color: #94a3b8; font-size: 0.875rem;">Confidence</span>
+        <span style="color: #f5f9fc; font-size: 0.875rem;">0.7%</span>
+    </div>
+    <div style="background-color: #2a3447; height: 0.5rem; border-radius: 0.25rem; overflow: hidden;">
+        <div style="background-color: #10b981; height: 100%; width: 0.6591304188946709%;"></div>
+    </div>
+</div>
+
+<div style="margin-top: 1rem;">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+        <span style="color: #94a3b8; font-size: 0.875rem;">Target Price</span>
+        <span style="font-weight: 600; color: #f5f9fc;">$198.95 <span style="color: #10b981; font-size: 0.75rem;">(+1.00%)</span></span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+        <div>
+            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted High</div>
+            <div style="font-weight: 600; color: #f5f9fc;">$200.94</div>
+        </div>
+        <div>
+            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted Low</div>
+            <div style="font-weight: 600; color: #f5f9fc;">$196.96</div>
+        </div>
+    </div>
+
+    <div style="margin-top: 1.5rem; position: relative; height: 0.25rem; background-color: #2a3447; border-radius: 0.125rem;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 0.75rem; height: 0.75rem; background-color: #10b981; border-radius: 50%;"></div>
+    </div>
+    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;">
+        <span>$196.96</span>
+        <span>$200.94</span>
+    </div>
+</div>
+
+1 Week Forecast
+UP
+<div>
+    <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+        <span style="color: #94a3b8; font-size: 0.875rem;">Confidence</span>
+        <span style="color: #f5f9fc; font-size: 0.875rem;">0.6%</span>
+    </div>
+    <div style="background-color: #2a3447; height: 0.5rem; border-radius: 0.25rem; overflow: hidden;">
+        <div style="background-color: #10b981; height: 100%; width: 0.6045131859572235%;"></div>
+    </div>
+</div>
+
+<div style="margin-top: 1rem;">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+        <span style="color: #94a3b8; font-size: 0.875rem;">Target Price</span>
+        <span style="font-weight: 600; color: #f5f9fc;">$200.92 <span style="color: #10b981; font-size: 0.75rem;">(+2.00%)</span></span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+        <div>
+            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted High</div>
+            <div style="font-weight: 600; color: #f5f9fc;">$204.94</div>
+        </div>
+        <div>
+            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted Low</div>
+            <div style="font-weight: 600; color: #f5f9fc;">$196.90</div>
+        </div>
+    </div>
+
+    <div style="margin-top: 1.5rem; position: relative; height: 0.25rem; background-color: #2a3447; border-radius: 0.125rem;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 0.75rem; height: 0.75rem; background-color: #10b981; border-radius: 50%;"></div>
+    </div>
+    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;">
+        <span>$196.90</span>
+        <span>$204.94</span>
+    </div>
+</div>
+
+1 Month Forecast
+UP
+<div>
+    <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+        <span style="color: #94a3b8; font-size: 0.875rem;">Confidence</span>
+        <span style="color: #f5f9fc; font-size: 0.875rem;">0.6%</span>
+    </div>
+    <div style="background-color: #2a3447; height: 0.5rem; border-radius: 0.25rem; overflow: hidden;">
+        <div style="background-color: #10b981; height: 100%; width: 0.550020966038842%;"></div>
+    </div>
+</div>
+
+<div style="margin-top: 1rem;">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+        <span style="color: #94a3b8; font-size: 0.875rem;">Target Price</span>
+        <span style="font-weight: 600; color: #f5f9fc;">$202.89 <span style="color: #10b981; font-size: 0.75rem;">(+3.00%)</span></span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+        <div>
+            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted High</div>
+            <div style="font-weight: 600; color: #f5f9fc;">$211.00</div>
+        </div>
+        <div>
+            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted Low</div>
+            <div style="font-weight: 600; color: #f5f9fc;">$194.77</div>
+        </div>
+    </div>
+
+    <div style="margin-top: 1.5rem; position: relative; height: 0.25rem; background-color: #2a3447; border-radius: 0.125rem;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 0.75rem; height: 0.75rem; background-color: #10b981; border-radius: 50%;"></div>
+    </div>
+    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;">
+        <span>$194.77</span>
+        <span>$211.00</span>
+    </div>
+</div>
+
+3 Months Forecast
+UP
+<div>
+    <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+        <span style="color: #94a3b8; font-size: 0.875rem;">Confidence</span>
+        <span style="color: #f5f9fc; font-size: 0.875rem;">0.5%</span>
+    </div>
+    <div style="background-color: #2a3447; height: 0.5rem; border-radius: 0.25rem; overflow: hidden;">
+        <div style="background-color: #10b981; height: 100%; width: 0.5193042941756064%;"></div>
+    </div>
+</div>
+
+<div style="margin-top: 1rem;">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+        <span style="color: #94a3b8; font-size: 0.875rem;">Target Price</span>
+        <span style="font-weight: 600; color: #f5f9fc;">$206.83 <span style="color: #10b981; font-size: 0.75rem;">(+5.00%)</span></span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+        <div>
+            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted High</div>
+            <div style="font-weight: 600; color: #f5f9fc;">$221.31</div>
+        </div>
+        <div>
+            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted Low</div>
+            <div style="font-weight: 600; color: #f5f9fc;">$192.35</div>
+        </div>
+    </div>
+
+    <div style="margin-top: 1.5rem; position: relative; height: 0.25rem; background-color: #2a3447; border-radius: 0.125rem;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 0.75rem; height: 0.75rem; background-color: #10b981; border-radius: 50%;"></div>
+    </div>
+    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;">
+        <span>$192.35</span>
+        <span>$221.31</span>
+    </div>
+</div>
+
+6 Months Forecast
+UP
+<div>
+    <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+        <span style="color: #94a3b8; font-size: 0.875rem;">Confidence</span>
+        <span style="color: #f5f9fc; font-size: 0.875rem;">51.9%</span>
+    </div>
+    <div style="background-color: #2a3447; height: 0.5rem; border-radius: 0.25rem; overflow: hidden;">
+        <div style="background-color: #10b981; height: 100%; width: 51.9%;"></div>
+    </div>
+</div>
+
+<div style="margin-top: 1rem;">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+        <span style="color: #94a3b8; font-size: 0.875rem;">Target Price</span>
+        <span style="font-weight: 600; color: #f5f9fc;">$210.77 <span style="color: #10b981; font-size: 0.75rem;">(+7.00%)</span></span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+        <div>
+            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted High</div>
+            <div style="font-weight: 600; color: #f5f9fc;">$231.85</div>
+        </div>
+        <div>
+            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted Low</div>
+            <div style="font-weight: 600; color: #f5f9fc;">$189.69</div>
+        </div>
+    </div>
+
+    <div style="margin-top: 1.5rem; position: relative; height: 0.25rem; background-color: #2a3447; border-radius: 0.125rem;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 0.75rem; height: 0.75rem; background-color: #10b981; border-radius: 50%;"></div>
+    </div>
+    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;">
+        <span>$189.69</span>
+        <span>$231.85</span>
+    </div>
+</div>
