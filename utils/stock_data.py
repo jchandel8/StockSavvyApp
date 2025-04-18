@@ -105,9 +105,15 @@ def get_stock_data(ticker: str, period: str = "1y") -> pd.DataFrame:
     # Function to get data from Alpha Vantage API
     def get_alpha_vantage_data(symbol):
         try:
-            api_key = st.secrets.get("ALPHA_VANTAGE_API_KEY")
+            try:
+                api_key = st.secrets["ALPHA_VANTAGE_API_KEY"]
+            except:
+                # Try to get it directly from environment variables
+                import os
+                api_key = os.environ.get("ALPHA_VANTAGE_API_KEY")
+                
             if not api_key:
-                st.warning("Alpha Vantage API key not found in secrets.")
+                print("Alpha Vantage API key not found. Please check your environment secrets.")
                 return None
                 
             # Create base URL for API request
@@ -124,6 +130,14 @@ def get_stock_data(ticker: str, period: str = "1y") -> pd.DataFrame:
                     "market": "USD",
                     "apikey": api_key
                 }
+            # For ETFs, prioritize TIME_SERIES_DAILY for reliable data
+            elif symbol in ["SPY", "QQQ", "DIA", "IWM", "VTI", "VGT", "XLK", "XLF", "XLE"]:
+                params = {
+                    "function": "TIME_SERIES_DAILY",
+                    "symbol": symbol,
+                    "outputsize": "full",
+                    "apikey": api_key
+                }
             else:
                 # Use time series endpoint for stocks
                 params = {
@@ -133,9 +147,37 @@ def get_stock_data(ticker: str, period: str = "1y") -> pd.DataFrame:
                     "apikey": api_key
                 }
             
-            # Get API response
-            response = requests.get(base_url, params=params)
-            data = response.json()
+            # Get API response with timeout and retry
+            import time
+            max_retries = 3
+            for retry in range(max_retries):
+                response = requests.get(base_url, params=params, timeout=10)
+                
+                # Check for API limit errors and handle gracefully
+                if "Note" in response.text and "API call frequency" in response.text:
+                    print(f"Alpha Vantage API limit reached, retrying in 5 seconds (attempt {retry+1}/{max_retries})")
+                    if retry < max_retries - 1:
+                        time.sleep(5)  # Wait 5 seconds before retrying
+                        continue
+                    else:
+                        print("Alpha Vantage API limit persists after retries")
+                        return None
+                        
+                # Parse the JSON response
+                try:
+                    data = response.json()
+                    # If we got an error message
+                    if "Error Message" in data:
+                        print(f"Alpha Vantage API error: {data['Error Message']}")
+                        return None
+                    break  # Success, break the retry loop
+                except Exception as e:
+                    print(f"Error parsing Alpha Vantage response: {str(e)}")
+                    if retry < max_retries - 1:
+                        time.sleep(2)
+                        continue
+                    else:
+                        return None
             
             # Different processing for crypto vs stocks
             if is_crypto(symbol):
@@ -198,26 +240,53 @@ def get_stock_data(ticker: str, period: str = "1y") -> pd.DataFrame:
             st.error(f"Error fetching data from Alpha Vantage: {str(e)}")
             return None
     
-    # Try multiple methods to fetch data
-    methods = [
-        # Method 1: Direct yfinance history method with default period
-        lambda: yf.Ticker(ticker).history(period=period),
-        
-        # Method 2: Try with download instead of Ticker.history
-        lambda: yf.download(ticker, period=period, progress=False),
-        
-        # Method 3: Try with a shorter timeframe 
-        lambda: yf.Ticker(ticker).history(period="3mo"),
-        
-        # Method 4: Try with explicit interval
-        lambda: yf.Ticker(ticker).history(period="1mo", interval="1d"),
-        
-        # Method 5: Try Alpha Vantage API
-        lambda: get_alpha_vantage_data(ticker),
-        
-        # Method 6: Last resort - very short timeframe
-        lambda: yf.Ticker(ticker).history(period="5d")
-    ]
+    # Check if it's an ETF - we'll prioritize Alpha Vantage for ETFs to avoid rate limits
+    etf_symbols = ["SPY", "QQQ", "DIA", "IWM", "VTI", "VGT", "XLK", "XLF", "XLE"]
+    is_etf = ticker in etf_symbols
+    
+    # Try multiple methods to fetch data - order depends on if it's an ETF
+    if is_etf:
+        # For ETFs, try Alpha Vantage first to avoid Yahoo Finance rate limits
+        methods = [
+            # Method 1: Try Alpha Vantage API first for ETFs
+            lambda: get_alpha_vantage_data(ticker),
+            
+            # Method 2: Direct yfinance history method with default period
+            lambda: yf.Ticker(ticker).history(period=period),
+            
+            # Method 3: Try with download instead of Ticker.history
+            lambda: yf.download(ticker, period=period, progress=False),
+            
+            # Method 4: Try with a shorter timeframe 
+            lambda: yf.Ticker(ticker).history(period="3mo"),
+            
+            # Method 5: Try with explicit interval
+            lambda: yf.Ticker(ticker).history(period="1mo", interval="1d"),
+            
+            # Method 6: Last resort - very short timeframe
+            lambda: yf.Ticker(ticker).history(period="5d")
+        ]
+    else:
+        # For regular stocks and crypto, keep the regular order
+        methods = [
+            # Method 1: Direct yfinance history method with default period
+            lambda: yf.Ticker(ticker).history(period=period),
+            
+            # Method 2: Try with download instead of Ticker.history
+            lambda: yf.download(ticker, period=period, progress=False),
+            
+            # Method 3: Try with a shorter timeframe 
+            lambda: yf.Ticker(ticker).history(period="3mo"),
+            
+            # Method 4: Try with explicit interval
+            lambda: yf.Ticker(ticker).history(period="1mo", interval="1d"),
+            
+            # Method 5: Try Alpha Vantage API
+            lambda: get_alpha_vantage_data(ticker),
+            
+            # Method 6: Last resort - very short timeframe
+            lambda: yf.Ticker(ticker).history(period="5d")
+        ]
     
     # Keep track of rate limit errors
     rate_limit_errors = 0
