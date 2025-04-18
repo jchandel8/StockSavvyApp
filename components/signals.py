@@ -1,24 +1,23 @@
 import streamlit as st
 import pandas as pd
 
-def get_signal_html(signal_type: str) -> str:
-    colors = {
-        'buy': '#00ff00',
-        'sell': '#ff0000',
-        'neutral': '#808080'
-    }
-    return f'''
-        <div style="
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            background: {colors[signal_type]};
-            border-radius: 50%;
-            box-shadow: 0 0 8px {colors[signal_type]};
-            margin-right: 8px;
-            vertical-align: middle;
-        "></div>
-    '''
+def get_signal_indicator(signal_type: str) -> None:
+    """Display a colored indicator based on signal type using native Streamlit components"""
+    if signal_type == 'buy':
+        st.success("", icon="🔼")
+    elif signal_type == 'sell':
+        st.error("", icon="🔽")
+    else:
+        st.info("", icon="⚪")
+        
+def get_signal_badge(signal_type: str, text: str) -> None:
+    """Display a colored badge with text using native Streamlit components"""
+    if signal_type == 'buy':
+        st.success(text)
+    elif signal_type == 'sell':
+        st.error(text)
+    else:
+        st.info(text)
 
 def display_signals(signals: dict):
     col1, col2 = st.columns(2)
@@ -43,19 +42,19 @@ def display_signals(signals: dict):
     
     with col1:
         st.subheader("Buy Signals")
-        if signals['buy_signals']:
+        if signals.get('buy_signals'):
             for signal in signals['buy_signals']:
-                st.markdown(get_signal_html('buy') + signal, unsafe_allow_html=True)
+                st.success(signal, icon="🔼")
         else:
-            st.write("No buy signals detected")
+            st.info("No buy signals detected", icon="ℹ️")
     
     with col2:
         st.subheader("Sell Signals")
-        if signals['sell_signals']:
+        if signals.get('sell_signals'):
             for signal in signals['sell_signals']:
-                st.markdown(get_signal_html('sell') + signal, unsafe_allow_html=True)
+                st.error(signal, icon="🔽")
         else:
-            st.write("No sell signals detected")
+            st.info("No sell signals detected", icon="ℹ️")
 
 def display_technical_summary(df):
     st.subheader("Technical Analysis Summary")
@@ -74,39 +73,86 @@ def display_technical_summary(df):
         rsi = safe_get(df, 'RSI', default=50.0)  # Neutral RSI default
         macd = safe_get(df, 'MACD', default=0.0)
         signal = safe_get(df, 'MACD_Signal', default=0.0)
+        sma20 = safe_get(df, 'SMA20', default=0.0)
+        sma50 = safe_get(df, 'SMA50', default=0.0)
+        sma200 = safe_get(df, 'SMA200', default=0.0)
         
-        # Create columns for display
-        cols = st.columns(3)
+        # Display current price in larger font
+        st.metric("Current Price", f"${current_price:.2f}")
         
-        # Display current price
-        with cols[0]:
-            if current_price is not None:
-                st.metric("Current Price", f"${current_price:.2f}")
-            else:
-                st.metric("Current Price", "N/A")
+        # Add a divider
+        st.markdown("---")
         
-        # Display RSI
-        with cols[1]:
+        # Display RSI and MACD in a single row
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**RSI**")
             if rsi is not None:
-                rsi_type = 'buy' if rsi < 30 else 'sell' if rsi > 70 else 'neutral'
-                st.markdown(get_signal_html(rsi_type) + f"RSI: {rsi:.2f}", unsafe_allow_html=True)
+                # Determine RSI status with native color coding
+                if rsi < 30:
+                    st.success(f"{rsi:.2f} - Oversold", icon="🔼")
+                elif rsi > 70:
+                    st.error(f"{rsi:.2f} - Overbought", icon="🔽")
+                else:
+                    st.info(f"{rsi:.2f} - Neutral", icon="⚖️")
             else:
-                st.markdown(get_signal_html('neutral') + "RSI: N/A", unsafe_allow_html=True)
+                st.info("RSI: N/A")
         
-        # Display MACD
-        with cols[2]:
+        with col2:
+            st.write("**MACD**")
             if macd is not None and signal is not None:
-                macd_type = 'buy' if macd > signal else 'sell'
-                st.markdown(get_signal_html(macd_type) + f"MACD: {macd:.2f}", unsafe_allow_html=True)
+                # Determine MACD status with native color coding
+                if macd > signal:
+                    st.success(f"{macd:.2f} - Bullish", icon="🔼")
+                else:
+                    st.error(f"{macd:.2f} - Bearish", icon="🔽")
             else:
-                st.markdown(get_signal_html('neutral') + "MACD: N/A", unsafe_allow_html=True)
+                st.info("MACD: N/A")
+        
+        # Add a divider
+        st.markdown("---")
+        
+        # Moving Averages section
+        st.subheader("Moving Averages")
+        
+        # Display moving averages
+        if current_price and sma20:
+            col1, col2 = st.columns(2)
+            with col1:
+                st.write("SMA 20")
+            with col2:
+                if current_price > sma20:
+                    st.success(f"${sma20:.2f} (Above)", icon="🔼")
+                else:
+                    st.error(f"${sma20:.2f} (Below)", icon="🔽")
+        
+        if current_price and sma50:
+            col1, col2 = st.columns(2)
+            with col1:
+                st.write("SMA 50")
+            with col2:
+                if current_price > sma50:
+                    st.success(f"${sma50:.2f} (Above)", icon="🔼")
+                else:
+                    st.error(f"${sma50:.2f} (Below)", icon="🔽")
+        
+        if current_price and sma200:
+            col1, col2 = st.columns(2)
+            with col1:
+                st.write("SMA 200")
+            with col2:
+                if current_price > sma200:
+                    st.success(f"${sma200:.2f} (Above)", icon="🔼")
+                else:
+                    st.error(f"${sma200:.2f} (Below)", icon="🔽")
     
     except Exception as e:
         st.error(f"Error displaying technical summary: {str(e)}")
-        cols = st.columns(3)
-        with cols[0]:
-            st.metric("Current Price", "Error")
-        with cols[1]:
-            st.markdown(get_signal_html('neutral') + "RSI: Error", unsafe_allow_html=True)
-        with cols[2]:
-            st.markdown(get_signal_html('neutral') + "MACD: Error", unsafe_allow_html=True)
+        st.metric("Current Price", "Error")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.error("RSI: Error")
+        with col2:
+            st.error("MACD: Error")
