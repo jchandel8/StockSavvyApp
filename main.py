@@ -95,7 +95,7 @@ if search_query:
             st.session_state.ticker = ticker
             
             # Rerun the app to show the selected ticker
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("No results found. Try another search term.")
             ticker = None
