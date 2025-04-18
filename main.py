@@ -47,9 +47,22 @@ def generate_sample_data(ticker="AAPL"):
         'Volume': volume
     })
     
-    # Sample info
+    # Sample info with proper company names based on ticker
+    company_names = {
+        'AAPL': 'Apple Inc.',
+        'MSFT': 'Microsoft Corporation',
+        'GOOGL': 'Alphabet Inc.',
+        'AMZN': 'Amazon.com, Inc.',
+        'META': 'Meta Platforms, Inc.',
+        'TSLA': 'Tesla, Inc.',
+        'NVDA': 'NVIDIA Corporation',
+        'JPM': 'JPMorgan Chase & Co.',
+        'NFLX': 'Netflix, Inc.',
+        'DIS': 'The Walt Disney Company'
+    }
+    
     info = {
-        'name': 'Apple Inc.' if ticker == 'AAPL' else f'{ticker} Inc.',
+        'name': company_names.get(ticker, f'{ticker} Inc.'),
         'market_cap': 2710000000000,  # $2.71T
         'pe_ratio': 28.92,
         'exchange': 'NASDAQ'
@@ -69,20 +82,47 @@ if 'initialized' not in st.session_state:
     st.session_state.backtest_start = datetime.datetime(2024, 1, 1).date()
     st.session_state.backtest_end = datetime.datetime(2025, 3, 31).date()
 
-# Apply custom CSS
-try:
-    # Load the main CSS file
-    with open('styles/style.css') as f:
-        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
-    
-    # Load the prediction-specific CSS file
+# Apply custom CSS for styling
+def load_css_file(file_path):
     try:
-        with open('styles/prediction.css') as f:
+        with open(file_path) as f:
             st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+        return True
     except Exception as e:
-        st.warning(f"Prediction styling could not be loaded: {str(e)}")
-except Exception as e:
-    st.warning(f"Custom styling could not be loaded: {str(e)}")
+        st.warning(f"Error loading CSS from {file_path}: {str(e)}")
+        return False
+
+# Load main styling
+main_css_loaded = load_css_file('styles/style.css')
+
+# Load prediction specific styling with improved error handling
+prediction_css_loaded = load_css_file('styles/prediction.css')
+
+# Apply inline CSS as fallback for prediction styling if the file can't be loaded
+if not prediction_css_loaded:
+    st.markdown("""
+    <style>
+    /* Fallback styles for prediction cards */
+    .prediction-header { display: flex !important; justify-content: space-between !important; align-items: center !important; margin-bottom: 1rem !important; }
+    .prediction-title { font-size: 1.125rem !important; font-weight: 600 !important; margin: 0 !important; }
+    
+    .up-badge { display: inline-block !important; background-color: rgba(16, 185, 129, 0.2) !important; color: #10b981 !important; 
+               border-radius: 9999px !important; padding: 0.25rem 0.75rem !important; font-size: 0.75rem !important; font-weight: 500 !important; }
+    .down-badge { display: inline-block !important; background-color: rgba(239, 68, 68, 0.2) !important; color: #ef4444 !important; 
+                border-radius: 9999px !important; padding: 0.25rem 0.75rem !important; font-size: 0.75rem !important; font-weight: 500 !important; }
+    .neutral-badge { display: inline-block !important; background-color: rgba(148, 163, 184, 0.2) !important; color: #94a3b8 !important; 
+                   border-radius: 9999px !important; padding: 0.25rem 0.75rem !important; font-size: 0.75rem !important; font-weight: 500 !important; }
+    
+    .progress-label { display: flex !important; justify-content: space-between !important; margin-bottom: 0.25rem !important; font-size: 0.875rem !important; }
+    .progress-bar { height: 0.5rem !important; background-color: rgba(255, 255, 255, 0.1) !important; border-radius: 9999px !important; overflow: hidden !important; }
+    .progress-value { height: 100% !important; background-color: #10b981 !important; }
+    
+    .range-slider { width: 100% !important; height: 0.25rem !important; background-color: rgba(255, 255, 255, 0.1) !important; 
+                  border-radius: 9999px !important; position: relative !important; margin: 1rem 0 !important; }
+    .range-slider-indicator { position: absolute !important; width: 0.5rem !important; height: 0.5rem !important; background-color: #10b981 !important; 
+                            border-radius: 50% !important; top: -0.125rem !important; transform: translateX(-50%) !important; }
+    </style>
+    """, unsafe_allow_html=True)
 
 # Header section with logo and search
 st.markdown("""
@@ -120,7 +160,7 @@ ticker = None
 if 'ticker' in st.session_state:
     ticker = st.session_state.ticker
 
-# Handle search functionality
+# Process the search query
 if search_query:
     # If search is performed, update the view
     with st.spinner('🔍 Searching financial markets...'):
@@ -128,42 +168,30 @@ if search_query:
         if search_results:
             # Display search results
             options = []
-            ticker_mapping = {}  # Map selection text to ticker symbol
+            symbols = []
             
             for r in search_results:
                 icon = "🪙" if r.get('exchange', '').lower() in ['crypto', 'binance', 'coinbase'] else "📈"
                 option_text = f"{icon} {r['symbol']} - {r['name']} ({r['exchange']})"
                 options.append(option_text)
-                ticker_mapping[option_text] = r['symbol']
+                symbols.append(r['symbol'])
             
-            # If we need to set an index
-            default_index = 0
-            
-            # Use session state for selectbox to prevent infinite loops
-            if 'asset_option' not in st.session_state:
-                st.session_state.asset_option = options[default_index]
-                
-            selected = st.selectbox(
+            # Create the selectbox for results
+            selected_idx = st.selectbox(
                 "Select an asset to analyze",
-                options,
-                index=options.index(st.session_state.asset_option) if st.session_state.asset_option in options else 0,
-                key="asset_selector",
-                on_change=None  # No callback to prevent rerunning
+                range(len(options)),
+                format_func=lambda i: options[i],
+                key="asset_selector"
             )
             
-            # Only update if the selection changed and isn't from a previous run
-            if selected != st.session_state.asset_option:
-                st.session_state.asset_option = selected
-                
-                # Get ticker from our mapping
-                if selected in ticker_mapping:
-                    new_ticker = ticker_mapping[selected]
-                    
-                    # Only update and rerun if the ticker changed
-                    if ticker != new_ticker:
-                        st.session_state.ticker = new_ticker
-                        ticker = new_ticker
-                        st.rerun()
+            # Set the selected ticker to the corresponding symbol
+            if 0 <= selected_idx < len(symbols):
+                # Only update if it's a new ticker
+                new_ticker = symbols[selected_idx]
+                if new_ticker != ticker:
+                    ticker = new_ticker
+                    st.session_state.ticker = new_ticker
+                    st.rerun()
         else:
             st.error("No results found. Try another search term.")
 
@@ -432,6 +460,8 @@ if ticker:
         </div>
         """, unsafe_allow_html=True)
         
+        # Display prediction cards in columns
+        # First row - 1 Day and 1 Week
         col1, col2 = st.columns(2)
         
         # 1 Day and 1 Week forecast
