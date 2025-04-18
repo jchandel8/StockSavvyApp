@@ -466,7 +466,8 @@ if ticker:
         
         # 1 Day and 1 Week forecast
         with col1:
-            st.markdown("""
+            # 1 Day Forecast Card
+            one_day_card = """
             <div class="card">
                 <div class="prediction-header">
                     <h4 class="prediction-title">1 Day Forecast</h4>
@@ -509,7 +510,11 @@ if ticker:
                     </div>
                 </div>
             </div>
+            """
+            st.markdown(one_day_card, unsafe_allow_html=True)
             
+            # 1 Week Forecast Card
+            one_week_card = """
             <div class="card">
                 <div class="prediction-header">
                     <h4 class="prediction-title">1 Week Forecast</h4>
@@ -552,11 +557,13 @@ if ticker:
                     </div>
                 </div>
             </div>
-            """, unsafe_allow_html=True)
+            """
+            st.markdown(one_week_card, unsafe_allow_html=True)
         
         # 1 Month and 3 Months forecast
         with col2:
-            st.markdown("""
+            # 1 Month Forecast Card
+            one_month_card = """
             <div class="card">
                 <div class="prediction-header">
                     <h4 class="prediction-title">1 Month Forecast</h4>
@@ -599,7 +606,11 @@ if ticker:
                     </div>
                 </div>
             </div>
+            """
+            st.markdown(one_month_card, unsafe_allow_html=True)
             
+            # 3 Months Forecast Card
+            three_months_card = """
             <div class="card">
                 <div class="prediction-header">
                     <h4 class="prediction-title">3 Months Forecast</h4>
@@ -642,12 +653,14 @@ if ticker:
                     </div>
                 </div>
             </div>
-            """, unsafe_allow_html=True)
+            """
+            st.markdown(three_months_card, unsafe_allow_html=True)
         
         # 6 Months forecast
         col1, col2 = st.columns([1, 1])
         with col1:
-            st.markdown("""
+            # 6 Months Forecast Card
+            six_months_card = """
             <div class="card">
                 <div class="prediction-header">
                     <h4 class="prediction-title">6 Months Forecast</h4>
@@ -690,7 +703,8 @@ if ticker:
                     </div>
                 </div>
             </div>
-            """, unsafe_allow_html=True)
+            """
+            st.markdown(six_months_card, unsafe_allow_html=True)
     
     # News Tab
     with tabs[2]:
