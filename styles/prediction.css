@@ -14,73 +14,73 @@
     margin: 0;
 }
 
-/* Price direction badges */
-.up-badge {
-    display: inline-block;
-    background-color: rgba(16, 185, 129, 0.2);
-    color: #10b981;
-    border-radius: 9999px;
-    padding: 0.25rem 0.75rem;
-    font-size: 0.75rem;
-    font-weight: 500;
+/* Price direction badges for prediction tab */
+.prediction-header .up-badge {
+    display: inline-block !important;
+    background-color: rgba(16, 185, 129, 0.2) !important;
+    color: #10b981 !important;
+    border-radius: 9999px !important;
+    padding: 0.25rem 0.75rem !important;
+    font-size: 0.75rem !important;
+    font-weight: 500 !important;
 }
 
-.down-badge {
-    display: inline-block;
-    background-color: rgba(239, 68, 68, 0.2);
-    color: #ef4444;
-    border-radius: 9999px;
-    padding: 0.25rem 0.75rem;
-    font-size: 0.75rem;
-    font-weight: 500;
+.prediction-header .down-badge {
+    display: inline-block !important;
+    background-color: rgba(239, 68, 68, 0.2) !important;
+    color: #ef4444 !important;
+    border-radius: 9999px !important;
+    padding: 0.25rem 0.75rem !important;
+    font-size: 0.75rem !important;
+    font-weight: 500 !important;
 }
 
-.neutral-badge {
-    display: inline-block;
-    background-color: rgba(148, 163, 184, 0.2);
-    color: #94a3b8;
-    border-radius: 9999px;
-    padding: 0.25rem 0.75rem;
-    font-size: 0.75rem;
-    font-weight: 500;
+.prediction-header .neutral-badge {
+    display: inline-block !important;
+    background-color: rgba(148, 163, 184, 0.2) !important;
+    color: #94a3b8 !important;
+    border-radius: 9999px !important;
+    padding: 0.25rem 0.75rem !important;
+    font-size: 0.75rem !important;
+    font-weight: 500 !important;
 }
 
-/* Progress bar */
-.progress-label {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 0.25rem;
-    font-size: 0.875rem;
+/* Progress bar for prediction cards */
+.card .progress-label {
+    display: flex !important;
+    justify-content: space-between !important;
+    margin-bottom: 0.25rem !important;
+    font-size: 0.875rem !important;
 }
 
-.progress-bar {
-    height: 0.5rem;
-    background-color: rgba(255, 255, 255, 0.1);
-    border-radius: 9999px;
-    overflow: hidden;
+.card .progress-bar {
+    height: 0.5rem !important;
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 9999px !important;
+    overflow: hidden !important;
 }
 
-.progress-value {
-    height: 100%;
-    background-color: #10b981;
+.card .progress-value {
+    height: 100% !important;
+    background-color: #10b981 !important;
 }
 
-/* Range slider */
-.range-slider {
-    width: 100%;
-    height: 0.25rem;
-    background-color: rgba(255, 255, 255, 0.1);
-    border-radius: 9999px;
-    position: relative;
-    margin: 1rem 0;
+/* Range slider for prediction cards */
+.card .range-slider {
+    width: 100% !important;
+    height: 0.25rem !important;
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 9999px !important;
+    position: relative !important;
+    margin: 1rem 0 !important;
 }
 
-.range-slider-indicator {
-    position: absolute;
-    width: 0.5rem;
-    height: 0.5rem;
-    background-color: #10b981;
-    border-radius: 50%;
-    top: -0.125rem;
-    transform: translateX(-50%);
+.card .range-slider-indicator {
+    position: absolute !important;
+    width: 0.5rem !important;
+    height: 0.5rem !important;
+    background-color: #10b981 !important;
+    border-radius: 50% !important;
+    top: -0.125rem !important;
+    transform: translateX(-50%) !important;
 }
