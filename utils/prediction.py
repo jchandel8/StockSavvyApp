@@ -405,13 +405,16 @@ def calculate_prediction(data: pd.DataFrame, timeframe: str = 'short_term', look
 
 def calculate_trend_strength(data: pd.DataFrame) -> float:
     """Calculate the strength of the current trend."""
-    if len(data) < 20:
+    if len(data) < 10:  # Use a smaller window for limited data
         return 0.0
         
     try:
+        # Adapt window size to available data
+        window_size = min(20, max(3, len(data) // 4))
+        
         # Calculate price momentum using pandas operations
         returns = pd.Series(data['Close']).pct_change()
-        momentum_series = returns.rolling(window=20).mean()
+        momentum_series = returns.rolling(window=window_size).mean()
         
         # Safe handling of NaN values
         valid_momentum = pd.Series(momentum_series[pd.notna(momentum_series)])
@@ -419,7 +422,7 @@ def calculate_trend_strength(data: pd.DataFrame) -> float:
         
         # Calculate trend consistency
         direction_changes = (returns.shift(-1) * returns < 0).sum()
-        consistency = 1 - (direction_changes / len(returns))
+        consistency = 1 - (direction_changes / len(returns)) if len(returns) > 0 else 0.5
         
         # Combine factors
         score = (momentum + consistency) / 2
@@ -427,6 +430,178 @@ def calculate_trend_strength(data: pd.DataFrame) -> float:
     except Exception as e:
         print(f"Error in calculate_trend_strength: {str(e)}")
         return 0.0
+
+def generate_simplified_predictions(df: pd.DataFrame) -> dict:
+    """
+    Generate simplified predictions for all timeframes when there is limited data.
+    This uses basic technical indicators and simple statistical methods to make predictions.
+    """
+    predictions = {}
+    
+    # Ensure we have some data
+    if df is None or df.empty or len(df) < 2:
+        return {
+            'daily': {'timeframe': '1 Day', 'direction': 'NEUTRAL', 'confidence': 0.5, 
+                     'predicted_high': None, 'predicted_low': None, 'forecast': None},
+            'short_term': {'timeframe': '1 Week', 'direction': 'NEUTRAL', 'confidence': 0.5, 
+                          'predicted_high': None, 'predicted_low': None, 'forecast': None},
+            'medium_term': {'timeframe': '1 Month', 'direction': 'NEUTRAL', 'confidence': 0.5, 
+                           'predicted_high': None, 'predicted_low': None, 'forecast': None},
+            'long_term': {'timeframe': '3 Months', 'direction': 'NEUTRAL', 'confidence': 0.5, 
+                         'predicted_high': None, 'predicted_low': None, 'forecast': None},
+            'extended_term': {'timeframe': '6 Months', 'direction': 'NEUTRAL', 'confidence': 0.5, 
+                            'predicted_high': None, 'predicted_low': None, 'forecast': None}
+        }
+    
+    try:
+        # Current price and historical data
+        current_price = df['Close'].iloc[-1]
+        
+        # 1. Simple Moving Average Analysis
+        # Adaptive window size based on available data
+        sma_window = min(max(3, len(df) // 4), 10)
+        sma = df['Close'].rolling(window=sma_window).mean().iloc[-1] if len(df) >= sma_window else current_price
+        
+        # 2. Calculate average daily return
+        daily_returns = df['Close'].pct_change().dropna()
+        mean_return = daily_returns.mean() if len(daily_returns) > 0 else 0
+        
+        # 3. Simple trend analysis
+        try:
+            # Use simple linear regression on the available data points
+            from sklearn.linear_model import LinearRegression
+            X = np.array(range(len(df))).reshape(-1, 1)
+            y = df['Close'].values
+            model = LinearRegression()
+            model.fit(X, y)
+            trend_slope = model.coef_[0]
+            
+            # Normalize slope to a percentage of current price
+            normalized_slope = trend_slope / current_price if current_price > 0 else 0
+        except Exception:
+            # Fallback to simple up/down trend detection
+            if len(df) >= 3:
+                trend_slope = (df['Close'].iloc[-1] - df['Close'].iloc[0]) / len(df)
+                normalized_slope = trend_slope / current_price if current_price > 0 else 0
+            else:
+                normalized_slope = 0
+        
+        # 4. Simple volatility estimation
+        volatility = daily_returns.std() if len(daily_returns) > 1 else 0.01
+        
+        # 5. Technical indicators (simplified)
+        # RSI (if enough data)
+        rsi = None
+        if len(df) >= 6:
+            try:
+                up_days = daily_returns[daily_returns > 0].sum()
+                down_days = abs(daily_returns[daily_returns < 0].sum())
+                rs = up_days / down_days if down_days > 0 else 1
+                rsi = 100 - (100 / (1 + rs))
+            except Exception:
+                rsi = 50  # Neutral RSI
+        else:
+            rsi = 50
+            
+        # Price relative to recent high/low
+        high_low_ratio = None
+        if len(df) >= 5:
+            recent_high = df['High'].iloc[-5:].max()
+            recent_low = df['Low'].iloc[-5:].min()
+            price_range = recent_high - recent_low
+            if price_range > 0:
+                high_low_ratio = (current_price - recent_low) / price_range
+            else:
+                high_low_ratio = 0.5
+        else:
+            high_low_ratio = 0.5
+        
+        # 6. Generate predictions for each timeframe
+        timeframes = [
+            ('daily', '1 Day', 1),
+            ('short_term', '1 Week', 5),
+            ('medium_term', '1 Month', 21),
+            ('long_term', '3 Months', 63),
+            ('extended_term', '6 Months', 126)
+        ]
+        
+        for tf_key, tf_name, days_ahead in timeframes:
+            # Direction based on trend and indicators
+            direction = 'UP' if normalized_slope > 0 else ('DOWN' if normalized_slope < 0 else 'NEUTRAL')
+            
+            # Adjust direction based on RSI if available
+            if rsi is not None:
+                if rsi < 30:  # Oversold
+                    direction = 'UP'  # Potential reversal
+                elif rsi > 70:  # Overbought
+                    direction = 'DOWN'  # Potential reversal
+                    
+            # Confidence based on consistency and available data
+            confidence_base = min(0.5 + (len(df) / 100), 0.7)  # Higher confidence with more data, max 0.7
+            
+            # Adjust confidence based on timeframe (lower for longer timeframes)
+            tf_factor = 1 - (days_ahead / 200)  # Ranges from ~0.99 for daily to ~0.37 for 6-months
+            confidence = confidence_base * tf_factor
+            
+            # Adjust confidence based on indicators
+            # If RSI and trend direction align, increase confidence
+            if rsi is not None:
+                if (rsi > 50 and direction == 'UP') or (rsi < 50 and direction == 'DOWN'):
+                    confidence *= 1.2
+                else:
+                    confidence *= 0.8
+                    
+            # Calculate price prediction using simple projection
+            # Base forecast on trend with increasing uncertainty for longer timeframes
+            price_change_factor = normalized_slope * days_ahead
+            
+            # Scale the factor for realism (can be adjusted based on volatility)
+            scale_factor = min(1.0, 10 * volatility)  # Limit extreme projections
+            price_change_factor *= scale_factor
+            
+            forecast = current_price * (1 + price_change_factor)
+            
+            # Calculate range based on volatility and timeframe
+            # Longer timeframes have wider ranges
+            volatility_factor = volatility * np.sqrt(days_ahead)
+            range_width = current_price * volatility_factor * (1 + days_ahead/100)
+            
+            # Ensure minimum range width for visual clarity
+            min_range = current_price * 0.01 * days_ahead/5
+            range_width = max(range_width, min_range)
+            
+            predictions[tf_key] = {
+                'timeframe': tf_name,
+                'direction': direction,
+                'confidence': min(confidence, 0.9),  # Cap at 0.9
+                'predicted_high': forecast + range_width,
+                'predicted_low': forecast - range_width,
+                'forecast': forecast
+            }
+            
+        return predictions
+        
+    except Exception as e:
+        logger.error(f"Error in simplified prediction: {str(e)}")
+        
+        # Return default values with neutral prediction
+        return {
+            'daily': {'timeframe': '1 Day', 'direction': 'NEUTRAL', 'confidence': 0.5, 
+                     'predicted_high': current_price * 1.01, 'predicted_low': current_price * 0.99, 
+                     'forecast': current_price},
+            'short_term': {'timeframe': '1 Week', 'direction': 'NEUTRAL', 'confidence': 0.5, 
+                          'predicted_high': current_price * 1.03, 'predicted_low': current_price * 0.97,
+                          'forecast': current_price},
+            'medium_term': {'timeframe': '1 Month', 'direction': 'NEUTRAL', 'confidence': 0.5, 
+                           'predicted_high': current_price * 1.05, 'predicted_low': current_price * 0.95,
+                           'forecast': current_price},
+            'long_term': {'timeframe': '3 Months', 'direction': 'NEUTRAL', 'confidence': 0.5, 
+                         'predicted_high': current_price * 1.08, 'predicted_low': current_price * 0.92,
+                         'forecast': current_price},
+            'extended_term': {'timeframe': '6 Months', 'direction': 'NEUTRAL', 'confidence': 0.5, 
+                            'predicted_high': current_price * 1.12, 'predicted_low': current_price * 0.88,
+                            'forecast': current_price}
+        }
 
 def predict_price_movement(data: pd.DataFrame, ticker: str) -> dict:
     """Generate price predictions for multiple timeframes using ensemble of advanced models."""
@@ -677,51 +852,10 @@ def get_prediction(df: pd.DataFrame, ticker: str) -> dict:
             }
         }
     
-    # Check for sufficient data length
-    if len(df) < 50:  # Need at least 50 data points for meaningful prediction
-        logger.warning(f"Insufficient data length for prediction: {len(df)} data points")
-        return {
-            'daily': {
-                'timeframe': '1 Day',
-                'direction': 'NEUTRAL',
-                'confidence': 0.0,
-                'predicted_high': None,
-                'predicted_low': None,
-                'forecast': None
-            },
-            'short_term': {
-                'timeframe': '1 Week',
-                'direction': 'NEUTRAL', 
-                'confidence': 0.0,
-                'predicted_high': None,
-                'predicted_low': None,
-                'forecast': None
-            },
-            'medium_term': {
-                'timeframe': '1 Month',
-                'direction': 'NEUTRAL',
-                'confidence': 0.0,
-                'predicted_high': None,
-                'predicted_low': None,
-                'forecast': None
-            },
-            'long_term': {
-                'timeframe': '3 Months',
-                'direction': 'NEUTRAL',
-                'confidence': 0.0,
-                'predicted_high': None,
-                'predicted_low': None,
-                'forecast': None
-            },
-            'extended_term': {
-                'timeframe': '6 Months',
-                'direction': 'NEUTRAL',
-                'confidence': 0.0,
-                'predicted_high': None,
-                'predicted_low': None,
-                'forecast': None
-            }
-        }
+    # Check for sufficient data length - but use what we have with fallback methods
+    if len(df) < 50:  # Not enough data for full model, use simplified prediction
+        logger.warning(f"Limited data length for prediction: {len(df)} data points - using simplified model")
+        return generate_simplified_predictions(df)
     
     # Check for NaN values in critical columns
     critical_columns = ['Close', 'High', 'Low', 'Open', 'Volume']
