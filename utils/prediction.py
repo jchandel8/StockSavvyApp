@@ -81,9 +81,9 @@ def prepare_features(data: pd.DataFrame) -> pd.DataFrame:
     
     return features.fillna(0)
 
-def calculate_prediction(data: pd.DataFrame, timeframe: str = 'short_term', look_back: int = None) -> dict:
-    # Set look_back periods based on timeframe
-    if look_back is None:
+def calculate_prediction(data: pd.DataFrame, timeframe: str = 'short_term', look_back: int = 0) -> dict:
+    # Set look_back periods based on timeframe if not provided
+    if look_back <= 0:
         look_back = {
             'daily': 15,       # 1 day prediction
             'short_term': 30,  # 1 week prediction
@@ -270,6 +270,75 @@ def predict_price_movement(data: pd.DataFrame, ticker: str) -> dict:
 @st.cache_data
 def get_prediction(df: pd.DataFrame, ticker: str) -> dict:
     """Get price prediction with caching."""
+    # First check if we have a valid dataframe
+    if df is None or df.empty:
+        logger.warning("No data available for prediction")
+        return {
+            'daily': {
+                'timeframe': '1 Day',
+                'direction': 'NEUTRAL',
+                'confidence': 0.0,
+                'predicted_high': None,
+                'predicted_low': None
+            },
+            'short_term': {
+                'timeframe': '1 Week',
+                'direction': 'NEUTRAL',
+                'confidence': 0.0,
+                'predicted_high': None,
+                'predicted_low': None
+            },
+            'medium_term': {
+                'timeframe': '1 Month',
+                'direction': 'NEUTRAL',
+                'confidence': 0.0,
+                'predicted_high': None,
+                'predicted_low': None
+            },
+            'long_term': {
+                'timeframe': '3 Months',
+                'direction': 'NEUTRAL',
+                'confidence': 0.0,
+                'predicted_high': None,
+                'predicted_low': None
+            }
+        }
+    
+    # Check if we have minimum required columns
+    required_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+    if not all(col in df.columns for col in required_columns):
+        logger.warning(f"Missing required columns for prediction: {[col for col in required_columns if col not in df.columns]}")
+        return {
+            'short_term': {
+                'timeframe': '1 Week',
+                'direction': 'NEUTRAL',
+                'confidence': 0.0,
+                'predicted_high': None,
+                'predicted_low': None
+            }
+        }
+    
+    # Check for sufficient data length
+    if len(df) < 50:  # Need at least 50 data points for meaningful prediction
+        logger.warning(f"Insufficient data length for prediction: {len(df)} data points")
+        return {
+            'short_term': {
+                'timeframe': '1 Week',
+                'direction': 'NEUTRAL', 
+                'confidence': 0.0,
+                'predicted_high': None,
+                'predicted_low': None
+            }
+        }
+    
+    # Check for NaN values in critical columns
+    critical_columns = ['Close', 'High', 'Low', 'Open', 'Volume']
+    for col in critical_columns:
+        if df[col].isna().any():
+            # Fill NaN values with forward fill, then backward fill
+            df[col] = df[col].fillna(method='ffill').fillna(method='bfill')
+            logger.warning(f"NaN values detected in {col}, filled with forward/backward fill")
+    
     try:
         return predict_price_movement(df, ticker)
     except Exception as e:

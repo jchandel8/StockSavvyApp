@@ -248,39 +248,71 @@ def generate_signals(df: pd.DataFrame) -> dict:
         return signals
     
     required_columns = ['Close', 'Open', 'High', 'Low', 'RSI', 'MACD_Hist', 'SMA_50']
-    if not all(col in df.columns for col in required_columns):
-        logger.error(f"Missing required columns for signal generation: {[col for col in required_columns if col not in df.columns]}")
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        logger.error(f"Missing required columns for signal generation: {missing_columns}")
         signals['status'] = 'missing_data'
         return signals
     
     try:
         logger.info("Starting signal generation process")
         
-        # Calculate new signals
-        gap_and_go = calculate_gap_and_go_signals(df)
-        trend_continuation = calculate_trend_continuation(df)
-        fibonacci = calculate_fibonacci_signals(df)
-        weekly_trendline = calculate_weekly_trendline_break(df)
+        # Calculate new signals with proper error handling
+        try:
+            gap_and_go = calculate_gap_and_go_signals(df)
+        except Exception as e:
+            logger.warning(f"Error calculating gap_and_go signals: {str(e)}")
+            gap_and_go = pd.Series(False, index=df.index)
+            
+        try:
+            trend_continuation = calculate_trend_continuation(df)
+        except Exception as e:
+            logger.warning(f"Error calculating trend_continuation signals: {str(e)}")
+            trend_continuation = pd.Series(False, index=df.index)
+            
+        try:
+            fibonacci = calculate_fibonacci_signals(df)
+        except Exception as e:
+            logger.warning(f"Error calculating fibonacci signals: {str(e)}")
+            fibonacci = pd.Series(False, index=df.index)
+            
+        try:
+            weekly_trendline = calculate_weekly_trendline_break(df)
+        except Exception as e:
+            logger.warning(f"Error calculating weekly_trendline signals: {str(e)}")
+            weekly_trendline = pd.Series(False, index=df.index)
         
-        # Get latest values and check for NaN
+        # Get latest values with safe defaults for NaN values
+        latest_values = {}
+        
+        # Helper function to safely get values with defaults
+        def safe_get(series, idx=-1, default=0.0):
+            try:
+                val = series.iloc[idx]
+                return default if pd.isna(val) else val
+            except (IndexError, AttributeError, KeyError):
+                return default
+        
+        # Safely populate all values with defaults
         latest_values = {
-            'rsi': df['RSI'].iloc[-1],
-            'macd_hist_current': df['MACD_Hist'].iloc[-1],
-            'macd_hist_prev': df['MACD_Hist'].iloc[-2],
-            'close_current': df['Close'].iloc[-1],
-            'close_prev': df['Close'].iloc[-2],
-            'sma50_current': df['SMA_50'].iloc[-1],
-            'sma50_prev': df['SMA_50'].iloc[-2],
-            'gap_and_go': gap_and_go.iloc[-1],
-            'trend_continuation': trend_continuation.iloc[-1],
-            'fibonacci': fibonacci.iloc[-1],
-            'weekly_trendline': weekly_trendline.iloc[-1]
+            'rsi': safe_get(df['RSI'], -1, 50.0),  # Neutral RSI
+            'macd_hist_current': safe_get(df['MACD_Hist'], -1, 0.0),
+            'macd_hist_prev': safe_get(df['MACD_Hist'], -2, 0.0),
+            'close_current': safe_get(df['Close'], -1, 100.0),
+            'close_prev': safe_get(df['Close'], -2, 100.0),
+            'sma50_current': safe_get(df['SMA_50'], -1, 100.0),
+            'sma50_prev': safe_get(df['SMA_50'], -2, 100.0),
+            'gap_and_go': safe_get(gap_and_go, -1, False),
+            'trend_continuation': safe_get(trend_continuation, -1, False),
+            'fibonacci': safe_get(fibonacci, -1, False),
+            'weekly_trendline': safe_get(weekly_trendline, -1, False)
         }
         
-        # Check for NaN values
-        nan_values = {k: v for k, v in latest_values.items() if pd.isna(v)}
+        # Check for NaN values in critical fields only
+        critical_fields = ['rsi', 'close_current', 'macd_hist_current']
+        nan_values = {k: v for k, v in latest_values.items() if k in critical_fields and pd.isna(v)}
         if nan_values:
-            logger.warning(f"NaN values found in: {list(nan_values.keys())}")
+            logger.warning(f"Critical NaN values found in: {list(nan_values.keys())}")
             signals['status'] = 'invalid_data'
             return signals
         
