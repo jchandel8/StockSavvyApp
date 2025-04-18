@@ -20,15 +20,11 @@ from utils.technical_analysis import (
 )
 
 def build_lstm_model(input_shape):
-    """Build and return an enhanced LSTM model for price prediction."""
+    """Build and return a simplified LSTM model for faster price prediction."""
     model = Sequential([
-        LSTM(128, return_sequences=True, input_shape=input_shape),
-        Dropout(0.3),
-        LSTM(64, return_sequences=True),
-        Dropout(0.3),
-        LSTM(32),
+        LSTM(64, return_sequences=True, input_shape=input_shape),
         Dropout(0.2),
-        Dense(32, activation='relu'),
+        LSTM(32),
         Dropout(0.2),
         Dense(16, activation='relu'),
         Dense(1, activation='sigmoid')
@@ -123,9 +119,9 @@ def calculate_prediction(data: pd.DataFrame, timeframe: str = 'short_term', look
         
         X, y = np.array(X), np.array(y)
         
-        # Build and train model
+        # Build and train model with fewer epochs for faster response
         lstm_model = build_lstm_model((look_back, scaled_features.shape[1]))
-        lstm_model.fit(X, y, epochs=50, batch_size=32, verbose=0)
+        lstm_model.fit(X, y, epochs=10, batch_size=32, verbose=0)
         
         # Make LSTM prediction
         last_sequence = scaled_features[-look_back:].reshape(1, look_back, scaled_features.shape[1])
