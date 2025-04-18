@@ -96,24 +96,56 @@ if ticker:
                 display_technical_summary(df)
                 
             with tabs[1]:
+                st.markdown("### Price Prediction Model")
+                st.markdown("Our advanced price prediction model utilizes a combination of machine learning techniques, technical indicators, seasonal patterns, and market regime analysis.")
+                
                 predictions = get_prediction(df, ticker)
                 
-                for timeframe, pred in predictions.items():
-                    if timeframe != 'daily':  # Skip daily predictions in this view
+                # Display the predictions in order
+                timeframe_order = ['daily', 'short_term', 'medium_term', 'long_term', 'extended_term']
+                for timeframe in timeframe_order:
+                    if timeframe in predictions:
+                        pred = predictions[timeframe]
                         st.subheader(f"{pred['timeframe']} Forecast")
-                        forecast_cols = st.columns(4)
-                        with forecast_cols[0]:
-                            st.metric("Direction", pred['direction'])
-                        with forecast_cols[1]:
-                            st.metric("Confidence", f"{pred['confidence']*100:.1f}%")
-                        with forecast_cols[2]:
+                        
+                        # Create two rows for better layout
+                        top_cols = st.columns(3)
+                        bottom_cols = st.columns(2)
+                        
+                        # Top row: Direction, Confidence, Forecast Price
+                        with top_cols[0]:
+                            direction_color = "green" if pred['direction'] == "UP" else ("red" if pred['direction'] == "DOWN" else "gray")
+                            st.markdown(f"<h4 style='color:{direction_color};'>Direction: {pred['direction']}</h4>", unsafe_allow_html=True)
+                        
+                        with top_cols[1]:
+                            confidence_val = pred.get('confidence', 0) * 100
+                            conf_color = "green" if confidence_val > 70 else ("orange" if confidence_val > 50 else "gray")
+                            st.markdown(f"<h4 style='color:{conf_color};'>Confidence: {confidence_val:.1f}%</h4>", unsafe_allow_html=True)
+                        
+                        with top_cols[2]:
+                            forecast_val = pred.get('forecast')
+                            if forecast_val is not None:
+                                current_price = df['Close'].iloc[-1]
+                                change = ((forecast_val - current_price) / current_price) * 100
+                                change_str = f" ({change:+.2f}%)"
+                                forecast_display = f"${forecast_val:.2f}{change_str}"
+                            else:
+                                forecast_display = "N/A"
+                            st.markdown(f"<h4>Target Price: {forecast_display}</h4>", unsafe_allow_html=True)
+                        
+                        # Bottom row: Range (High and Low)
+                        with bottom_cols[0]:
                             high_val = pred.get('predicted_high')
                             high_display = f"${high_val:.2f}" if high_val is not None else "N/A"
                             st.metric("Predicted High", high_display)
-                        with forecast_cols[3]:
+                        
+                        with bottom_cols[1]:
                             low_val = pred.get('predicted_low')
                             low_display = f"${low_val:.2f}" if low_val is not None else "N/A"
                             st.metric("Predicted Low", low_display)
+                        
+                        # Add separator between timeframes
+                        st.markdown("---")
                 
             with tabs[2]:
                 news = get_news(ticker)
