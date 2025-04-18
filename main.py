@@ -126,12 +126,25 @@ if search_query:
                 key="asset_selector"
             )
             
-            ticker = selected.split(' - ')[0].strip().split(' ')[-1] if selected else None
-            # Update session state
-            st.session_state.ticker = ticker
-            
-            # Rerun the app to show the selected ticker
-            st.rerun()
+            # Extract the ticker from the selected option
+            # Format is "📈 AAPL - Apple Inc. (Major Exchange)"
+            if selected:
+                # First split by the dash to get "📈 AAPL "
+                first_part = selected.split(' - ')[0].strip()
+                # Then split by space to get ["📈", "AAPL"]
+                ticker = first_part.split(' ')[-1]
+                
+                # Log for debugging
+                st.write(f"Selected: {selected}")
+                st.write(f"Extracted ticker: {ticker}")
+                
+                # Update session state
+                st.session_state.ticker = ticker
+                
+                # Rerun the app to show the selected ticker
+                st.rerun()
+            else:
+                ticker = None
         else:
             st.error("No results found. Try another search term.")
             ticker = None
