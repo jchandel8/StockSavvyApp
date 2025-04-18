@@ -114,7 +114,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Set default ticker to render the app
-ticker = st.session_state.ticker
+ticker = None
+
+# Check if a ticker is already in session state
+if 'ticker' in st.session_state:
+    ticker = st.session_state.ticker
+
+# Handle search functionality
 if search_query:
     # If search is performed, update the view
     with st.spinner('🔍 Searching financial markets...'):
@@ -122,49 +128,44 @@ if search_query:
         if search_results:
             # Display search results
             options = []
+            ticker_mapping = {}  # Map selection text to ticker symbol
+            
             for r in search_results:
                 icon = "🪙" if r.get('exchange', '').lower() in ['crypto', 'binance', 'coinbase'] else "📈"
-                option = f"{icon} {r['symbol']} - {r['name']} ({r['exchange']})"
-                options.append(option)
+                option_text = f"{icon} {r['symbol']} - {r['name']} ({r['exchange']})"
+                options.append(option_text)
+                ticker_mapping[option_text] = r['symbol']
             
+            # If we need to set an index
+            default_index = 0
+            
+            # Use session state for selectbox to prevent infinite loops
+            if 'asset_option' not in st.session_state:
+                st.session_state.asset_option = options[default_index]
+                
             selected = st.selectbox(
                 "Select an asset to analyze",
                 options,
-                format_func=lambda x: x,
-                key="asset_selector"
+                index=options.index(st.session_state.asset_option) if st.session_state.asset_option in options else 0,
+                key="asset_selector",
+                on_change=None  # No callback to prevent rerunning
             )
             
-            # Extract the ticker from the selected option
-            # Format is "📈 AAPL - Apple Inc. (Major Exchange)"
-            if selected:
-                # Log the selection for debugging
-                print(f"Selected option: {selected}")
+            # Only update if the selection changed and isn't from a previous run
+            if selected != st.session_state.asset_option:
+                st.session_state.asset_option = selected
                 
-                # Get the first part before the dash
-                parts = selected.split(' - ')
-                if len(parts) > 0:
-                    # Extract ticker symbol (it's after the emoji)
-                    first_part = parts[0].strip()
-                    words = first_part.split()
+                # Get ticker from our mapping
+                if selected in ticker_mapping:
+                    new_ticker = ticker_mapping[selected]
                     
-                    # The ticker should be the second element (after emoji)
-                    if len(words) >= 2:
-                        ticker = words[1]
-                    else:
-                        ticker = first_part  # Fallback if no space found
-                    
-                    # Update session state with the extracted ticker
-                    st.session_state.ticker = ticker
-                    
-                    # Rerun the app to show the selected ticker
-                    st.rerun()
-                else:
-                    ticker = None
-            else:
-                ticker = None
+                    # Only update and rerun if the ticker changed
+                    if ticker != new_ticker:
+                        st.session_state.ticker = new_ticker
+                        ticker = new_ticker
+                        st.rerun()
         else:
             st.error("No results found. Try another search term.")
-            ticker = None
 
 if ticker:
     # Format crypto symbols correctly
