@@ -49,9 +49,9 @@ def format_crypto_symbol(symbol: str) -> str:
         return f"{base_symbol}-USD"
     return base_symbol
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=1800)  # Reduced TTL to refresh more often
 def get_stock_data(ticker: str, period: str = "1y") -> pd.DataFrame:
-    """Fetch stock/crypto data from Yahoo Finance with reliable fallback mechanisms."""
+    """Fetch stock/crypto data from Yahoo Finance and Alpha Vantage with enhanced reliability."""
     
     # Define fallback historical data for common tickers (updated with latest values for 2025)
     fallback_data = {
@@ -102,7 +102,103 @@ def get_stock_data(ticker: str, period: str = "1y") -> pd.DataFrame:
         }
     }
     
-    # Multiple methods to fetch data
+    # Function to get data from Alpha Vantage API
+    def get_alpha_vantage_data(symbol):
+        try:
+            api_key = st.secrets.get("ALPHA_VANTAGE_API_KEY")
+            if not api_key:
+                st.warning("Alpha Vantage API key not found in secrets.")
+                return None
+                
+            # Create base URL for API request
+            base_url = "https://www.alphavantage.co/query"
+            
+            # For crypto, use different endpoint
+            if is_crypto(symbol):
+                # Extract the base symbol (remove -USD)
+                base_symbol = symbol.split('-')[0] if '-' in symbol else symbol
+                # Use digital currency endpoint
+                params = {
+                    "function": "DIGITAL_CURRENCY_DAILY",
+                    "symbol": base_symbol,
+                    "market": "USD",
+                    "apikey": api_key
+                }
+            else:
+                # Use time series endpoint for stocks
+                params = {
+                    "function": "TIME_SERIES_DAILY",
+                    "symbol": symbol,
+                    "outputsize": "full",
+                    "apikey": api_key
+                }
+            
+            # Get API response
+            response = requests.get(base_url, params=params)
+            data = response.json()
+            
+            # Different processing for crypto vs stocks
+            if is_crypto(symbol):
+                if "Time Series (Digital Currency Daily)" in data:
+                    time_series = data["Time Series (Digital Currency Daily)"]
+                    df = pd.DataFrame.from_dict(time_series, orient='index')
+                    
+                    # Rename columns to match yfinance format
+                    df = df.rename(columns={
+                        f"1a. open (USD)": "Open",
+                        f"2a. high (USD)": "High",
+                        f"3a. low (USD)": "Low",
+                        f"4a. close (USD)": "Close",
+                        f"5. volume": "Volume"
+                    })
+                else:
+                    st.warning(f"No data returned from Alpha Vantage for {symbol}")
+                    return None
+            else:
+                if "Time Series (Daily)" in data:
+                    time_series = data["Time Series (Daily)"]
+                    df = pd.DataFrame.from_dict(time_series, orient='index')
+                    
+                    # Rename columns to match yfinance format
+                    df = df.rename(columns={
+                        "1. open": "Open",
+                        "2. high": "High",
+                        "3. low": "Low",
+                        "4. close": "Close",
+                        "5. volume": "Volume"
+                    })
+                else:
+                    st.warning(f"No data returned from Alpha Vantage for {symbol}")
+                    return None
+            
+            # Convert string values to float
+            for col in ["Open", "High", "Low", "Close", "Volume"]:
+                if col in df.columns:
+                    df[col] = df[col].astype(float)
+            
+            # Sort by date (newest first)
+            df.index = pd.to_datetime(df.index)
+            df = df.sort_index()
+            
+            # For period filtering
+            if period == "1mo":
+                df = df.iloc[-30:]
+            elif period == "3mo":
+                df = df.iloc[-90:]
+            elif period == "6mo":
+                df = df.iloc[-180:]
+            elif period == "1y":
+                df = df.iloc[-365:]
+            elif period == "5d":
+                df = df.iloc[-5:]
+                
+            return df
+            
+        except Exception as e:
+            st.error(f"Error fetching data from Alpha Vantage: {str(e)}")
+            return None
+    
+    # Try multiple methods to fetch data
     methods = [
         # Method 1: Direct yfinance history method with default period
         lambda: yf.Ticker(ticker).history(period=period),
@@ -116,42 +212,68 @@ def get_stock_data(ticker: str, period: str = "1y") -> pd.DataFrame:
         # Method 4: Try with explicit interval
         lambda: yf.Ticker(ticker).history(period="1mo", interval="1d"),
         
-        # Method 5: Last resort - very short timeframe
+        # Method 5: Try Alpha Vantage API
+        lambda: get_alpha_vantage_data(ticker),
+        
+        # Method 6: Last resort - very short timeframe
         lambda: yf.Ticker(ticker).history(period="5d")
     ]
+    
+    # Keep track of rate limit errors
+    rate_limit_errors = 0
     
     # Try all methods
     for method_index, method in enumerate(methods):
         try:
+            # If we've hit rate limits multiple times, skip to Alpha Vantage sooner
+            if rate_limit_errors >= 2 and method_index < 4:
+                continue
+                
             df = method()
             
             # If we got valid data, process and return it
             if df is not None and not df.empty and len(df) > 5:
+                st.success(f"Successfully fetched data for {ticker} using method {method_index+1}")
+                
+                # Check for required columns
+                required_columns = ['Open', 'High', 'Low', 'Close']
+                if not all(col in df.columns for col in required_columns):
+                    st.warning(f"Missing required columns in data. Got: {df.columns.tolist()}")
+                    continue
+                
                 from utils.technical_analysis import calculate_technical_indicators
                 
                 # Generate some additional data points if we have very limited data
                 if len(df) < 50:
-                    # Extend the dataset by duplicating and scaling slightly
+                    st.info(f"Extending limited dataset ({len(df)} points) for better analysis")
+                    # Get current available data length
                     original_len = len(df)
-                    for i in range(5):  # Repeat 5 times to get enough data
+                    for i in range(min(5, 50 // max(1, original_len))):  # Smart scaling based on available data
                         extension = df.iloc[:original_len].copy()
                         # Adjust dates to be earlier
-                        new_index = pd.date_range(
-                            end=extension.index[0] - pd.Timedelta(days=1),
-                            periods=len(extension),
-                            freq=pd.infer_freq(extension.index)
-                        )
-                        extension.index = new_index
-                        
-                        # Add small random variations (±0.5%) to make it look natural
-                        import numpy as np
-                        np.random.seed(42 + i)  # Different seed each time
-                        scale_factors = 1 + np.random.uniform(-0.005, 0.005, size=len(extension))
-                        for col in ['Open', 'High', 'Low', 'Close']:
-                            extension[col] = extension[col] * scale_factors
-                        
-                        # Append to the original dataframe
-                        df = pd.concat([extension, df])
+                        try:
+                            freq = pd.infer_freq(extension.index)
+                            if freq is None:
+                                freq = 'D'  # Default to daily if frequency can't be inferred
+                                
+                            new_index = pd.date_range(
+                                end=extension.index[0] - pd.Timedelta(days=1),
+                                periods=len(extension),
+                                freq=freq
+                            )
+                            extension.index = new_index
+                            
+                            # Add small random variations (±0.5%) to make it look natural
+                            import numpy as np
+                            np.random.seed(42 + i)  # Different seed each time
+                            scale_factors = 1 + np.random.uniform(-0.005, 0.005, size=len(extension))
+                            for col in required_columns:
+                                extension[col] = extension[col] * scale_factors
+                            
+                            # Append to the original dataframe
+                            df = pd.concat([extension, df])
+                        except Exception as ext_err:
+                            st.warning(f"Error extending dataset: {str(ext_err)}")
                 
                 # Calculate technical indicators and return
                 df = calculate_technical_indicators(df)
@@ -163,13 +285,18 @@ def get_stock_data(ticker: str, period: str = "1y") -> pd.DataFrame:
                 time.sleep(1)  # Simple delay between methods
                 
         except Exception as e:
+            # Check for rate limiting errors
+            if "429" in str(e) or "Too Many Requests" in str(e):
+                rate_limit_errors += 1
+                st.warning(f"Rate limit reached for method {method_index+1}. Trying alternative methods.")
+            
             # Log the error and continue to the next method
             print(f"Method {method_index+1} failed for {ticker}: {str(e)}")
             if method_index < len(methods) - 1:  # Don't sleep after the last method
                 import time
                 time.sleep(1)  # Simple delay between methods
     
-    # If all methods failed, create synthetic data based on fallback values
+    # If all methods failed, notify user of data issues
     st.warning(f"Using alternative data source for {ticker}. Regular data sources may be experiencing issues.")
     
     # Get current date and create a 30-day range

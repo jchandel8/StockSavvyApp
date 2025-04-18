@@ -584,23 +584,29 @@ def generate_simplified_predictions(df: pd.DataFrame) -> dict:
     except Exception as e:
         logger.error(f"Error in simplified prediction: {str(e)}")
         
+        # Get the last known price or use a default
+        try:
+            last_price = df['Close'].iloc[-1] if not df.empty else 100.0
+        except:
+            last_price = 100.0
+        
         # Return default values with neutral prediction
         return {
             'daily': {'timeframe': '1 Day', 'direction': 'NEUTRAL', 'confidence': 0.5, 
-                     'predicted_high': current_price * 1.01, 'predicted_low': current_price * 0.99, 
-                     'forecast': current_price},
+                     'predicted_high': last_price * 1.01, 'predicted_low': last_price * 0.99, 
+                     'forecast': last_price},
             'short_term': {'timeframe': '1 Week', 'direction': 'NEUTRAL', 'confidence': 0.5, 
-                          'predicted_high': current_price * 1.03, 'predicted_low': current_price * 0.97,
-                          'forecast': current_price},
+                          'predicted_high': last_price * 1.03, 'predicted_low': last_price * 0.97,
+                          'forecast': last_price},
             'medium_term': {'timeframe': '1 Month', 'direction': 'NEUTRAL', 'confidence': 0.5, 
-                           'predicted_high': current_price * 1.05, 'predicted_low': current_price * 0.95,
-                           'forecast': current_price},
+                           'predicted_high': last_price * 1.05, 'predicted_low': last_price * 0.95,
+                           'forecast': last_price},
             'long_term': {'timeframe': '3 Months', 'direction': 'NEUTRAL', 'confidence': 0.5, 
-                         'predicted_high': current_price * 1.08, 'predicted_low': current_price * 0.92,
-                         'forecast': current_price},
+                         'predicted_high': last_price * 1.08, 'predicted_low': last_price * 0.92,
+                         'forecast': last_price},
             'extended_term': {'timeframe': '6 Months', 'direction': 'NEUTRAL', 'confidence': 0.5, 
-                            'predicted_high': current_price * 1.12, 'predicted_low': current_price * 0.88,
-                            'forecast': current_price}
+                            'predicted_high': last_price * 1.12, 'predicted_low': last_price * 0.88,
+                            'forecast': last_price}
         }
 
 def predict_price_movement(data: pd.DataFrame, ticker: str) -> dict:
