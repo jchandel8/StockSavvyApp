@@ -71,8 +71,16 @@ if 'initialized' not in st.session_state:
 
 # Apply custom CSS
 try:
+    # Load the main CSS file
     with open('styles/style.css') as f:
         st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+    
+    # Load the prediction-specific CSS file
+    try:
+        with open('styles/prediction.css') as f:
+            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+    except Exception as e:
+        st.warning(f"Prediction styling could not be loaded: {str(e)}")
 except Exception as e:
     st.warning(f"Custom styling could not be loaded: {str(e)}")
 
