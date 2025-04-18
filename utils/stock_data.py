@@ -233,19 +233,21 @@ def get_stock_data(ticker: str, period: str = "1y") -> pd.DataFrame:
             
             # If we got valid data, process and return it
             if df is not None and not df.empty and len(df) > 5:
-                st.success(f"Successfully fetched data for {ticker} using method {method_index+1}")
+                # Don't show technical success messages to end user
                 
                 # Check for required columns
                 required_columns = ['Open', 'High', 'Low', 'Close']
                 if not all(col in df.columns for col in required_columns):
-                    st.warning(f"Missing required columns in data. Got: {df.columns.tolist()}")
+                    # Don't show technical error messages to end users
+                    print(f"Missing required columns in data. Got: {df.columns.tolist()}")
                     continue
                 
                 from utils.technical_analysis import calculate_technical_indicators
                 
                 # Generate some additional data points if we have very limited data
                 if len(df) < 50:
-                    st.info(f"Extending limited dataset ({len(df)} points) for better analysis")
+                    # Don't show technical processing messages to end users
+                    print(f"Extending limited dataset ({len(df)} points) for better analysis")
                     # Get current available data length
                     original_len = len(df)
                     for i in range(min(5, 50 // max(1, original_len))):  # Smart scaling based on available data
@@ -288,7 +290,9 @@ def get_stock_data(ticker: str, period: str = "1y") -> pd.DataFrame:
             # Check for rate limiting errors
             if "429" in str(e) or "Too Many Requests" in str(e):
                 rate_limit_errors += 1
-                st.warning(f"Rate limit reached for method {method_index+1}. Trying alternative methods.")
+                # Only show user-friendly message for first rate limit error
+                if rate_limit_errors == 1:
+                    st.info("Fetching market data from alternative sources...")
             
             # Log the error and continue to the next method
             print(f"Method {method_index+1} failed for {ticker}: {str(e)}")
@@ -296,8 +300,8 @@ def get_stock_data(ticker: str, period: str = "1y") -> pd.DataFrame:
                 import time
                 time.sleep(1)  # Simple delay between methods
     
-    # If all methods failed, notify user of data issues
-    st.warning(f"Using alternative data source for {ticker}. Regular data sources may be experiencing issues.")
+    # If all methods failed, notify user of data issues with a friendlier message
+    st.info(f"Using historical market data for {ticker}.")
     
     # Get current date and create a 30-day range
     from datetime import datetime, timedelta

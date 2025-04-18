@@ -99,7 +99,9 @@ if ticker:
                 st.markdown("### Price Prediction Model")
                 st.markdown("Our advanced price prediction model utilizes a combination of machine learning techniques, technical indicators, seasonal patterns, and market regime analysis.")
                 
-                predictions = get_prediction(df, ticker)
+                # Show loading state while predictions are being generated
+                with st.spinner("Generating price predictions..."):
+                    predictions = get_prediction(df, ticker)
                 
                 # Display the predictions in order
                 timeframe_order = ['daily', 'short_term', 'medium_term', 'long_term', 'extended_term']
