@@ -487,6 +487,9 @@ if ticker:
         predictions = get_prediction(df, ticker)
         
         # Display prediction cards in columns
+        # Import the prediction card component
+        from components.prediction_card import create_prediction_card
+        
         # First row - 1 Day and 1 Week
         col1, col2 = st.columns(2)
         
@@ -497,147 +500,38 @@ if ticker:
             pred_price = one_day_pred.get("price", current_price * 1.01)  # Default to 1% up if missing
             confidence = one_day_pred.get("confidence", 50.0)
             direction = one_day_pred.get("direction", "UP")
-            
-            # Calculate percentage change
-            price_change = ((pred_price - current_price) / current_price) * 100
-            price_change_color = "#10b981" if price_change >= 0 else "#ef4444"
-            price_change_sign = "+" if price_change >= 0 else ""
-            
-            # Direction badge
-            if direction == "UP":
-                direction_badge = "up-badge"
-                direction_text = "UP"
-            elif direction == "DOWN":
-                direction_badge = "down-badge"
-                direction_text = "DOWN"
-            else:
-                direction_badge = "neutral-badge"
-                direction_text = "NEUTRAL"
-                
-            # Calculate high and low predictions
             pred_high = one_day_pred.get("high", pred_price * 1.01)
             pred_low = one_day_pred.get("low", pred_price * 0.99)
             
-            # Create the card with dynamic data
-            one_day_card = f"""
-            <div class="card">
-                <div class="prediction-header">
-                    <h4 class="prediction-title">1 Day Forecast</h4>
-                    <span class="{direction_badge}">{direction_text}</span>
-                </div>
-                
-                <div>
-                    <div class="progress-label">
-                        <span>Confidence</span>
-                        <span>{confidence:.1f}%</span>
-                    </div>
-                    <div class="progress-bar">
-                        <div class="progress-value" style="width: {confidence}%;"></div>
-                    </div>
-                </div>
-                
-                <div style="margin-top: 1rem;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <span style="color: #94a3b8; font-size: 0.875rem;">Target Price</span>
-                        <span style="font-weight: 600;">${pred_price:.2f} <span style="color: {price_change_color}; font-size: 0.75rem;">({price_change_sign}{price_change:.2f}%)</span></span>
-                    </div>
-                    
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
-                        <div>
-                            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted High</div>
-                            <div style="font-weight: 600;">${pred_high:.2f}</div>
-                        </div>
-                        <div>
-                            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted Low</div>
-                            <div style="font-weight: 600;">${pred_low:.2f}</div>
-                        </div>
-                    </div>
-                    
-                    <div class="range-slider" style="margin-top: 1.5rem;">
-                        <div class="range-slider-indicator" style="left: 50%;"></div>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #94a3b8;">
-                        <span>${pred_low:.2f}</span>
-                        <span>${pred_high:.2f}</span>
-                    </div>
-                </div>
-            </div>
-            """
-            st.markdown(one_day_card, unsafe_allow_html=True)
+            # Create the card with our component
+            create_prediction_card(
+                title="1 Day Forecast", 
+                direction=direction, 
+                confidence=confidence, 
+                current_price=current_price, 
+                pred_price=pred_price, 
+                pred_high=pred_high,
+                pred_low=pred_low
+            )
             
-            # 1 Week Forecast Card
             # Get 1-week prediction data
             one_week_pred = predictions.get("medium_term", {})
             pred_price_week = one_week_pred.get("price", current_price * 1.02)  # Default to 2% up if missing
             confidence_week = one_week_pred.get("confidence", 50.0)
             direction_week = one_week_pred.get("direction", "UP")
-            
-            # Calculate percentage change
-            price_change_week = ((pred_price_week - current_price) / current_price) * 100
-            price_change_color_week = "#10b981" if price_change_week >= 0 else "#ef4444"
-            price_change_sign_week = "+" if price_change_week >= 0 else ""
-            
-            # Direction badge
-            if direction_week == "UP":
-                direction_badge_week = "up-badge"
-                direction_text_week = "UP"
-            elif direction_week == "DOWN":
-                direction_badge_week = "down-badge"
-                direction_text_week = "DOWN"
-            else:
-                direction_badge_week = "neutral-badge"
-                direction_text_week = "NEUTRAL"
-                
-            # Calculate high and low predictions
             pred_high_week = one_week_pred.get("high", pred_price_week * 1.02)
             pred_low_week = one_week_pred.get("low", pred_price_week * 0.98)
             
-            # Create the card with dynamic data
-            one_week_card = f"""
-            <div class="card">
-                <div class="prediction-header">
-                    <h4 class="prediction-title">1 Week Forecast</h4>
-                    <span class="{direction_badge_week}">{direction_text_week}</span>
-                </div>
-                
-                <div>
-                    <div class="progress-label">
-                        <span>Confidence</span>
-                        <span>{confidence_week:.1f}%</span>
-                    </div>
-                    <div class="progress-bar">
-                        <div class="progress-value" style="width: {confidence_week}%;"></div>
-                    </div>
-                </div>
-                
-                <div style="margin-top: 1rem;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <span style="color: #94a3b8; font-size: 0.875rem;">Target Price</span>
-                        <span style="font-weight: 600;">${pred_price_week:.2f} <span style="color: {price_change_color_week}; font-size: 0.75rem;">({price_change_sign_week}{price_change_week:.2f}%)</span></span>
-                    </div>
-                    
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
-                        <div>
-                            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted High</div>
-                            <div style="font-weight: 600;">${pred_high_week:.2f}</div>
-                        </div>
-                        <div>
-                            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted Low</div>
-                            <div style="font-weight: 600;">${pred_low_week:.2f}</div>
-                        </div>
-                    </div>
-                    
-                    <div class="range-slider" style="margin-top: 1.5rem;">
-                        <div class="range-slider-indicator" style="left: 50%;"></div>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #94a3b8;">
-                        <span>${pred_low_week:.2f}</span>
-                        <span>${pred_high_week:.2f}</span>
-                    </div>
-                </div>
-            </div>
-            """
-            st.markdown(one_week_card, unsafe_allow_html=True)
+            # Create 1-week card
+            create_prediction_card(
+                title="1 Week Forecast", 
+                direction=direction_week, 
+                confidence=confidence_week, 
+                current_price=current_price, 
+                pred_price=pred_price_week, 
+                pred_high=pred_high_week,
+                pred_low=pred_low_week
+            )
         
         # 1 Month and 3 Months forecast
         with col2:
@@ -646,147 +540,38 @@ if ticker:
             pred_price_month = one_month_pred.get("price", current_price * 1.03)  # Default to 3% up if missing
             confidence_month = one_month_pred.get("confidence", 60.0)
             direction_month = one_month_pred.get("direction", "UP")
-            
-            # Calculate percentage change
-            price_change_month = ((pred_price_month - current_price) / current_price) * 100
-            price_change_color_month = "#10b981" if price_change_month >= 0 else "#ef4444"
-            price_change_sign_month = "+" if price_change_month >= 0 else ""
-            
-            # Direction badge
-            if direction_month == "UP":
-                direction_badge_month = "up-badge"
-                direction_text_month = "UP"
-            elif direction_month == "DOWN":
-                direction_badge_month = "down-badge"
-                direction_text_month = "DOWN"
-            else:
-                direction_badge_month = "neutral-badge"
-                direction_text_month = "NEUTRAL"
-                
-            # Calculate high and low predictions
             pred_high_month = one_month_pred.get("high", pred_price_month * 1.04)
             pred_low_month = one_month_pred.get("low", pred_price_month * 0.96)
             
-            # Create the card with dynamic data
-            one_month_card = f"""
-            <div class="card">
-                <div class="prediction-header">
-                    <h4 class="prediction-title">1 Month Forecast</h4>
-                    <span class="{direction_badge_month}">{direction_text_month}</span>
-                </div>
-                
-                <div>
-                    <div class="progress-label">
-                        <span>Confidence</span>
-                        <span>{confidence_month:.1f}%</span>
-                    </div>
-                    <div class="progress-bar">
-                        <div class="progress-value" style="width: {confidence_month}%;"></div>
-                    </div>
-                </div>
-                
-                <div style="margin-top: 1rem;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <span style="color: #94a3b8; font-size: 0.875rem;">Target Price</span>
-                        <span style="font-weight: 600;">${pred_price_month:.2f} <span style="color: {price_change_color_month}; font-size: 0.75rem;">({price_change_sign_month}{price_change_month:.2f}%)</span></span>
-                    </div>
-                    
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
-                        <div>
-                            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted High</div>
-                            <div style="font-weight: 600;">${pred_high_month:.2f}</div>
-                        </div>
-                        <div>
-                            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted Low</div>
-                            <div style="font-weight: 600;">${pred_low_month:.2f}</div>
-                        </div>
-                    </div>
-                    
-                    <div class="range-slider" style="margin-top: 1.5rem;">
-                        <div class="range-slider-indicator" style="left: 50%;"></div>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #94a3b8;">
-                        <span>${pred_low_month:.2f}</span>
-                        <span>${pred_high_month:.2f}</span>
-                    </div>
-                </div>
-            </div>
-            """
-            st.markdown(one_month_card, unsafe_allow_html=True)
+            # Create 1-month card
+            create_prediction_card(
+                title="1 Month Forecast", 
+                direction=direction_month, 
+                confidence=confidence_month, 
+                current_price=current_price, 
+                pred_price=pred_price_month, 
+                pred_high=pred_high_month,
+                pred_low=pred_low_month
+            )
             
-            # 3 Months Forecast Card
             # Get 3-months prediction data
             three_month_pred = predictions.get("extended_term", {})
             pred_price_3m = three_month_pred.get("price", current_price * 1.05)  # Default to 5% up if missing
             confidence_3m = three_month_pred.get("confidence", 55.0)
             direction_3m = three_month_pred.get("direction", "UP")
-            
-            # Calculate percentage change
-            price_change_3m = ((pred_price_3m - current_price) / current_price) * 100
-            price_change_color_3m = "#10b981" if price_change_3m >= 0 else "#ef4444"
-            price_change_sign_3m = "+" if price_change_3m >= 0 else ""
-            
-            # Direction badge
-            if direction_3m == "UP":
-                direction_badge_3m = "up-badge"
-                direction_text_3m = "UP"
-            elif direction_3m == "DOWN":
-                direction_badge_3m = "down-badge"
-                direction_text_3m = "DOWN"
-            else:
-                direction_badge_3m = "neutral-badge"
-                direction_text_3m = "NEUTRAL"
-                
-            # Calculate high and low predictions
             pred_high_3m = three_month_pred.get("high", pred_price_3m * 1.07)
             pred_low_3m = three_month_pred.get("low", pred_price_3m * 0.93)
             
-            # Create the card with dynamic data
-            three_months_card = f"""
-            <div class="card">
-                <div class="prediction-header">
-                    <h4 class="prediction-title">3 Months Forecast</h4>
-                    <span class="{direction_badge_3m}">{direction_text_3m}</span>
-                </div>
-                
-                <div>
-                    <div class="progress-label">
-                        <span>Confidence</span>
-                        <span>{confidence_3m:.1f}%</span>
-                    </div>
-                    <div class="progress-bar">
-                        <div class="progress-value" style="width: {confidence_3m}%;"></div>
-                    </div>
-                </div>
-                
-                <div style="margin-top: 1rem;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <span style="color: #94a3b8; font-size: 0.875rem;">Target Price</span>
-                        <span style="font-weight: 600;">${pred_price_3m:.2f} <span style="color: {price_change_color_3m}; font-size: 0.75rem;">({price_change_sign_3m}{price_change_3m:.2f}%)</span></span>
-                    </div>
-                    
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
-                        <div>
-                            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted High</div>
-                            <div style="font-weight: 600;">${pred_high_3m:.2f}</div>
-                        </div>
-                        <div>
-                            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted Low</div>
-                            <div style="font-weight: 600;">${pred_low_3m:.2f}</div>
-                        </div>
-                    </div>
-                    
-                    <div class="range-slider" style="margin-top: 1.5rem;">
-                        <div class="range-slider-indicator" style="left: 50%;"></div>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #94a3b8;">
-                        <span>${pred_low_3m:.2f}</span>
-                        <span>${pred_high_3m:.2f}</span>
-                    </div>
-                </div>
-            </div>
-            """
-            st.markdown(three_months_card, unsafe_allow_html=True)
+            # Create 3-month card
+            create_prediction_card(
+                title="3 Months Forecast", 
+                direction=direction_3m, 
+                confidence=confidence_3m, 
+                current_price=current_price, 
+                pred_price=pred_price_3m, 
+                pred_high=pred_high_3m,
+                pred_low=pred_low_3m
+            )
         
         # 6 Months forecast
         col1, col2 = st.columns([1, 1])
@@ -796,73 +581,19 @@ if ticker:
             pred_price_6m = six_month_pred.get("price", current_price * 1.07)  # Default to 7% up if missing
             confidence_6m = six_month_pred.get("confidence", 51.9)
             direction_6m = six_month_pred.get("direction", "UP")
-            
-            # Calculate percentage change
-            price_change_6m = ((pred_price_6m - current_price) / current_price) * 100
-            price_change_color_6m = "#10b981" if price_change_6m >= 0 else "#ef4444"
-            price_change_sign_6m = "+" if price_change_6m >= 0 else ""
-            
-            # Direction badge
-            if direction_6m == "UP":
-                direction_badge_6m = "up-badge"
-                direction_text_6m = "UP"
-            elif direction_6m == "DOWN":
-                direction_badge_6m = "down-badge"
-                direction_text_6m = "DOWN"
-            else:
-                direction_badge_6m = "neutral-badge"
-                direction_text_6m = "NEUTRAL"
-                
-            # Calculate high and low predictions
             pred_high_6m = six_month_pred.get("high", pred_price_6m * 1.10)
             pred_low_6m = six_month_pred.get("low", pred_price_6m * 0.90)
             
-            # Create the card with dynamic data
-            six_months_card = f"""
-            <div class="card">
-                <div class="prediction-header">
-                    <h4 class="prediction-title">6 Months Forecast</h4>
-                    <span class="{direction_badge_6m}">{direction_text_6m}</span>
-                </div>
-                
-                <div>
-                    <div class="progress-label">
-                        <span>Confidence</span>
-                        <span>{confidence_6m:.1f}%</span>
-                    </div>
-                    <div class="progress-bar">
-                        <div class="progress-value" style="width: {confidence_6m}%;"></div>
-                    </div>
-                </div>
-                
-                <div style="margin-top: 1rem;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <span style="color: #94a3b8; font-size: 0.875rem;">Target Price</span>
-                        <span style="font-weight: 600;">${pred_price_6m:.2f} <span style="color: {price_change_color_6m}; font-size: 0.75rem;">({price_change_sign_6m}{price_change_6m:.2f}%)</span></span>
-                    </div>
-                    
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
-                        <div>
-                            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted High</div>
-                            <div style="font-weight: 600;">${pred_high_6m:.2f}</div>
-                        </div>
-                        <div>
-                            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted Low</div>
-                            <div style="font-weight: 600;">${pred_low_6m:.2f}</div>
-                        </div>
-                    </div>
-                    
-                    <div class="range-slider" style="margin-top: 1.5rem;">
-                        <div class="range-slider-indicator" style="left: 50%;"></div>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #94a3b8;">
-                        <span>${pred_low_6m:.2f}</span>
-                        <span>${pred_high_6m:.2f}</span>
-                    </div>
-                </div>
-            </div>
-            """
-            st.markdown(six_months_card, unsafe_allow_html=True)
+            # Create 6-month card
+            create_prediction_card(
+                title="6 Months Forecast", 
+                direction=direction_6m, 
+                confidence=confidence_6m, 
+                current_price=current_price, 
+                pred_price=pred_price_6m, 
+                pred_high=pred_high_6m,
+                pred_low=pred_low_6m
+            )
     
     # News Tab
     with tabs[2]:

@@ -1,0 +1,189 @@
+1 Day Forecast
+UP
+<div>
+    <div class="progress-label">
+        <span>Confidence</span>
+        <span>0.7%</span>
+    </div>
+    <div class="progress-bar">
+        <div class="progress-value" style="width: 0.6654241180122733%;"></div>
+    </div>
+</div>
+
+<div style="margin-top: 1rem;">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+        <span style="color: #94a3b8; font-size: 0.875rem;">Target Price</span>
+        <span style="font-weight: 600;">$198.95 <span style="color: #10b981; font-size: 0.75rem;">(+1.00%)</span></span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+        <div>
+            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted High</div>
+            <div style="font-weight: 600;">$200.94</div>
+        </div>
+        <div>
+            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted Low</div>
+            <div style="font-weight: 600;">$196.96</div>
+        </div>
+    </div>
+
+    <div class="range-slider" style="margin-top: 1.5rem;">
+        <div class="range-slider-indicator" style="left: 50%;"></div>
+    </div>
+    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #94a3b8;">
+        <span>$196.96</span>
+        <span>$200.94</span>
+    </div>
+</div>
+
+1 Week Forecast
+UP
+<div>
+    <div class="progress-label">
+        <span>Confidence</span>
+        <span>0.6%</span>
+    </div>
+    <div class="progress-bar">
+        <div class="progress-value" style="width: 0.5997880274421956%;"></div>
+    </div>
+</div>
+
+<div style="margin-top: 1rem;">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+        <span style="color: #94a3b8; font-size: 0.875rem;">Target Price</span>
+        <span style="font-weight: 600;">$200.92 <span style="color: #10b981; font-size: 0.75rem;">(+2.00%)</span></span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+        <div>
+            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted High</div>
+            <div style="font-weight: 600;">$204.94</div>
+        </div>
+        <div>
+            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted Low</div>
+            <div style="font-weight: 600;">$196.90</div>
+        </div>
+    </div>
+
+    <div class="range-slider" style="margin-top: 1.5rem;">
+        <div class="range-slider-indicator" style="left: 50%;"></div>
+    </div>
+    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #94a3b8;">
+        <span>$196.90</span>
+        <span>$204.94</span>
+    </div>
+</div>
+
+1 Month Forecast
+UP
+<div>
+    <div class="progress-label">
+        <span>Confidence</span>
+        <span>0.6%</span>
+    </div>
+    <div class="progress-bar">
+        <div class="progress-value" style="width: 0.550020966038842%;"></div>
+    </div>
+</div>
+
+<div style="margin-top: 1rem;">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+        <span style="color: #94a3b8; font-size: 0.875rem;">Target Price</span>
+        <span style="font-weight: 600;">$202.89 <span style="color: #10b981; font-size: 0.75rem;">(+3.00%)</span></span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+        <div>
+            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted High</div>
+            <div style="font-weight: 600;">$211.00</div>
+        </div>
+        <div>
+            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted Low</div>
+            <div style="font-weight: 600;">$194.77</div>
+        </div>
+    </div>
+
+    <div class="range-slider" style="margin-top: 1.5rem;">
+        <div class="range-slider-indicator" style="left: 50%;"></div>
+    </div>
+    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #94a3b8;">
+        <span>$194.77</span>
+        <span>$211.00</span>
+    </div>
+</div>
+
+3 Months Forecast
+DOWN
+<div>
+    <div class="progress-label">
+        <span>Confidence</span>
+        <span>0.6%</span>
+    </div>
+    <div class="progress-bar">
+        <div class="progress-value" style="width: 0.6443103733692448%;"></div>
+    </div>
+</div>
+
+<div style="margin-top: 1rem;">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+        <span style="color: #94a3b8; font-size: 0.875rem;">Target Price</span>
+        <span style="font-weight: 600;">$206.83 <span style="color: #10b981; font-size: 0.75rem;">(+5.00%)</span></span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+        <div>
+            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted High</div>
+            <div style="font-weight: 600;">$221.31</div>
+        </div>
+        <div>
+            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted Low</div>
+            <div style="font-weight: 600;">$192.35</div>
+        </div>
+    </div>
+
+    <div class="range-slider" style="margin-top: 1.5rem;">
+        <div class="range-slider-indicator" style="left: 50%;"></div>
+    </div>
+    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #94a3b8;">
+        <span>$192.35</span>
+        <span>$221.31</span>
+    </div>
+</div>
+
+6 Months Forecast
+UP
+<div>
+    <div class="progress-label">
+        <span>Confidence</span>
+        <span>51.9%</span>
+    </div>
+    <div class="progress-bar">
+        <div class="progress-value" style="width: 51.9%;"></div>
+    </div>
+</div>
+
+<div style="margin-top: 1rem;">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+        <span style="color: #94a3b8; font-size: 0.875rem;">Target Price</span>
+        <span style="font-weight: 600;">$210.77 <span style="color: #10b981; font-size: 0.75rem;">(+7.00%)</span></span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+        <div>
+            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted High</div>
+            <div style="font-weight: 600;">$231.85</div>
+        </div>
+        <div>
+            <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted Low</div>
+            <div style="font-weight: 600;">$189.69</div>
+        </div>
+    </div>
+
+    <div class="range-slider" style="margin-top: 1.5rem;">
+        <div class="range-slider-indicator" style="left: 50%;"></div>
+    </div>
+    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #94a3b8;">
+        <span>$189.69</span>
+        <span>$231.85</span>
+    </div>
+</div>
