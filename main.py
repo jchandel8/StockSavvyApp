@@ -200,19 +200,13 @@ if ticker:
     if is_crypto(ticker):
         ticker = format_crypto_symbol(ticker)
     
-    # Try to get real data, use sample data if there's an issue
-    try:
-        # Get stock/crypto data and info
-        df = get_stock_data(ticker)
-        info = get_stock_info(ticker)
-        
-        # If data is empty or has issues, use sample data
-        if df.empty or 'Date' not in df.columns:
-            st.warning("API data unavailable. Using sample data for demonstration.")
-            df, info = generate_sample_data(ticker)
-    except Exception as e:
-        st.warning(f"Error fetching data: {str(e)}. Using sample data for demonstration.")
-        df, info = generate_sample_data(ticker)
+    # Get real stock/crypto data using Alpha Vantage API
+    df = get_stock_data(ticker)
+    info = get_stock_info(ticker)
+    
+    # Add the current date as a Date column if needed
+    if 'Date' not in df.columns:
+        df['Date'] = df.index
     
     # Stock symbol and name header
     col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
@@ -232,30 +226,59 @@ if ticker:
     
     # Metrics section
     current_price = df['Close'].iloc[-1]
-    price_change = 1.39  # Hardcoded for design purposes
+    
+    # Calculate price change over last day
+    if len(df) > 1:
+        prev_price = df['Close'].iloc[-2]
+        price_change_pct = ((current_price - prev_price) / prev_price) * 100
+    else:
+        price_change_pct = 0
+        
+    # Determine if price is up or down
+    price_change_sign = "+" if price_change_pct >= 0 else ""
+    price_change_color = "#10b981" if price_change_pct >= 0 else "#ef4444"
     
     with col2:
         st.markdown(f"""
         <div class="metric-container">
             <div class="metric-label">Current Price<span class="info-icon" title="Current trading price">ⓘ</span></div>
             <div class="metric-value">${current_price:.2f}</div>
-            <div class="price-change">+{price_change}%</div>
+            <div class="price-change" style="color: {price_change_color}">{price_change_sign}{price_change_pct:.2f}%</div>
         </div>
         """, unsafe_allow_html=True)
+    
+    # Get market cap from stock info or calculate it
+    market_cap = info.get('market_cap', 0)
+    if market_cap == 0 and 'shares_outstanding' in info:
+        market_cap = current_price * info.get('shares_outstanding', 0)
+        
+    # Format market cap
+    if market_cap >= 1e12:  # Trillion
+        market_cap_formatted = f"${market_cap/1e12:.2f}T"
+    elif market_cap >= 1e9:  # Billion
+        market_cap_formatted = f"${market_cap/1e9:.2f}B"
+    elif market_cap >= 1e6:  # Million
+        market_cap_formatted = f"${market_cap/1e6:.2f}M"
+    else:
+        market_cap_formatted = f"${market_cap:,.0f}"
     
     with col3:
         st.markdown(f"""
         <div class="metric-container">
             <div class="metric-label">Market Cap</div>
-            <div class="metric-value">$2.71T</div>
+            <div class="metric-value">{market_cap_formatted}</div>
         </div>
         """, unsafe_allow_html=True)
+    
+    # Get P/E ratio
+    pe_ratio = info.get('pe_ratio', info.get('trailingPE', '-'))
+    pe_ratio = f"{pe_ratio:.2f}" if isinstance(pe_ratio, (int, float)) else '-'
     
     with col4:
         st.markdown(f"""
         <div class="metric-container">
             <div class="metric-label">P/E Ratio</div>
-            <div class="metric-value">28.92</div>
+            <div class="metric-value">{pe_ratio}</div>
         </div>
         """, unsafe_allow_html=True)
     
@@ -460,44 +483,73 @@ if ticker:
         </div>
         """, unsafe_allow_html=True)
         
+        # Get price predictions for this stock
+        predictions = get_prediction(df, ticker)
+        
         # Display prediction cards in columns
         # First row - 1 Day and 1 Week
         col1, col2 = st.columns(2)
         
         # 1 Day and 1 Week forecast
         with col1:
-            # 1 Day Forecast Card
-            one_day_card = """
+            # Get 1-day prediction data
+            one_day_pred = predictions.get("short_term", {})
+            pred_price = one_day_pred.get("price", current_price * 1.01)  # Default to 1% up if missing
+            confidence = one_day_pred.get("confidence", 50.0)
+            direction = one_day_pred.get("direction", "UP")
+            
+            # Calculate percentage change
+            price_change = ((pred_price - current_price) / current_price) * 100
+            price_change_color = "#10b981" if price_change >= 0 else "#ef4444"
+            price_change_sign = "+" if price_change >= 0 else ""
+            
+            # Direction badge
+            if direction == "UP":
+                direction_badge = "up-badge"
+                direction_text = "UP"
+            elif direction == "DOWN":
+                direction_badge = "down-badge"
+                direction_text = "DOWN"
+            else:
+                direction_badge = "neutral-badge"
+                direction_text = "NEUTRAL"
+                
+            # Calculate high and low predictions
+            pred_high = one_day_pred.get("high", pred_price * 1.01)
+            pred_low = one_day_pred.get("low", pred_price * 0.99)
+            
+            # Create the card with dynamic data
+            one_day_card = f"""
             <div class="card">
                 <div class="prediction-header">
                     <h4 class="prediction-title">1 Day Forecast</h4>
-                    <span class="up-badge">UP</span>
+                    <span class="{direction_badge}">{direction_text}</span>
                 </div>
                 
                 <div>
                     <div class="progress-label">
                         <span>Confidence</span>
-                        <span>70.7%</span>
+                        <span>{confidence:.1f}%</span>
                     </div>
                     <div class="progress-bar">
-                        <div class="progress-value" style="width: 70.7%;"></div>
+                        <div class="progress-value" style="width: {confidence}%;"></div>
                     </div>
                 </div>
                 
                 <div style="margin-top: 1rem;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                         <span style="color: #94a3b8; font-size: 0.875rem;">Target Price</span>
-                        <span style="font-weight: 600;">$196.62 <span style="color: #ef4444; font-size: 0.75rem;">(-0.19%)</span></span>
+                        <span style="font-weight: 600;">${pred_price:.2f} <span style="color: {price_change_color}; font-size: 0.75rem;">({price_change_sign}{price_change:.2f}%)</span></span>
                     </div>
                     
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
                         <div>
                             <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted High</div>
-                            <div style="font-weight: 600;">$198.38</div>
+                            <div style="font-weight: 600;">${pred_high:.2f}</div>
                         </div>
                         <div>
                             <div style="color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.25rem;">Predicted Low</div>
-                            <div style="font-weight: 600;">$194.85</div>
+                            <div style="font-weight: 600;">${pred_low:.2f}</div>
                         </div>
                     </div>
                     
@@ -505,8 +557,8 @@ if ticker:
                         <div class="range-slider-indicator" style="left: 50%;"></div>
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #94a3b8;">
-                        <span>$194.85</span>
-                        <span>$198.38</span>
+                        <span>${pred_low:.2f}</span>
+                        <span>${pred_high:.2f}</span>
                     </div>
                 </div>
             </div>

@@ -244,49 +244,26 @@ def get_stock_data(ticker: str, period: str = "1y") -> pd.DataFrame:
     etf_symbols = ["SPY", "QQQ", "DIA", "IWM", "VTI", "VGT", "XLK", "XLF", "XLE"]
     is_etf = ticker in etf_symbols
     
-    # Try multiple methods to fetch data - order depends on if it's an ETF
-    if is_etf:
-        # For ETFs, try Alpha Vantage first to avoid Yahoo Finance rate limits
-        methods = [
-            # Method 1: Try Alpha Vantage API first for ETFs
-            lambda: get_alpha_vantage_data(ticker),
-            
-            # Method 2: Direct yfinance history method with default period
-            lambda: yf.Ticker(ticker).history(period=period),
-            
-            # Method 3: Try with download instead of Ticker.history
-            lambda: yf.download(ticker, period=period, progress=False),
-            
-            # Method 4: Try with a shorter timeframe 
-            lambda: yf.Ticker(ticker).history(period="3mo"),
-            
-            # Method 5: Try with explicit interval
-            lambda: yf.Ticker(ticker).history(period="1mo", interval="1d"),
-            
-            # Method 6: Last resort - very short timeframe
-            lambda: yf.Ticker(ticker).history(period="5d")
-        ]
-    else:
-        # For regular stocks and crypto, keep the regular order
-        methods = [
-            # Method 1: Direct yfinance history method with default period
-            lambda: yf.Ticker(ticker).history(period=period),
-            
-            # Method 2: Try with download instead of Ticker.history
-            lambda: yf.download(ticker, period=period, progress=False),
-            
-            # Method 3: Try with a shorter timeframe 
-            lambda: yf.Ticker(ticker).history(period="3mo"),
-            
-            # Method 4: Try with explicit interval
-            lambda: yf.Ticker(ticker).history(period="1mo", interval="1d"),
-            
-            # Method 5: Try Alpha Vantage API
-            lambda: get_alpha_vantage_data(ticker),
-            
-            # Method 6: Last resort - very short timeframe
-            lambda: yf.Ticker(ticker).history(period="5d")
-        ]
+    # IMPORTANT: Always prioritize Alpha Vantage for all symbols due to Yahoo Finance API issues
+    methods = [
+        # Method 1: Always try Alpha Vantage API first
+        lambda: get_alpha_vantage_data(ticker),
+        
+        # Method 2: Direct yfinance history method with default period
+        lambda: yf.Ticker(ticker).history(period=period),
+        
+        # Method 3: Try with download instead of Ticker.history
+        lambda: yf.download(ticker, period=period, progress=False),
+        
+        # Method 4: Try with a shorter timeframe 
+        lambda: yf.Ticker(ticker).history(period="3mo"),
+        
+        # Method 5: Try with explicit interval
+        lambda: yf.Ticker(ticker).history(period="1mo", interval="1d"),
+        
+        # Method 6: Last resort - very short timeframe
+        lambda: yf.Ticker(ticker).history(period="5d")
+    ]
     
     # Keep track of rate limit errors
     rate_limit_errors = 0
