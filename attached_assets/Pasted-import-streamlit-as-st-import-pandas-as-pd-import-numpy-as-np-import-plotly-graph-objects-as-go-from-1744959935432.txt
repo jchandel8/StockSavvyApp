@@ -1,0 +1,839 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import datetime
+import time
+
+# Set page configuration
+st.set_page_config(
+    page_title="StockSavvy - Advanced Stock Analysis",
+    page_icon="📈",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Custom CSS to make Streamlit look more professional
+st.markdown("""
+<style>
+    /* Main background and text colors */
+    .stApp {
+        background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+        color: #f8fafc;
+    }
+    
+    /* Header styling */
+    .main-header {
+        background-color: rgba(15, 23, 42, 0.8);
+        backdrop-filter: blur(8px);
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+        border-bottom: 1px solid #334155;
+    }
+    
+    /* Card styling */
+    .css-card {
+        background-color: #1e293b;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        border: 1px solid #334155;
+        margin-bottom: 1rem;
+    }
+    
+    /* Metric styling */
+    .metric-container {
+        background-color: #1e293b;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        border: 1px solid #334155;
+    }
+    
+    .metric-label {
+        color: #94a3b8;
+        font-size: 0.875rem;
+    }
+    
+    .metric-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-top: 0.25rem;
+    }
+    
+    /* Tab styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 1rem;
+        background-color: #1e293b;
+        border-radius: 0.5rem;
+        padding: 0.5rem;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        height: 3rem;
+        white-space: pre-wrap;
+        border-radius: 0.5rem;
+        color: #94a3b8;
+        font-weight: 500;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background-color: #334155 !important;
+        color: white !important;
+    }
+    
+    /* Button styling */
+    .stButton > button {
+        background-color: #10b981;
+        color: white;
+        border: none;
+        border-radius: 0.375rem;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+    }
+    
+    .stButton > button:hover {
+        background-color: #059669;
+    }
+    
+    /* Sidebar styling */
+    [data-testid="stSidebar"] {
+        background-color: #0f172a;
+        border-right: 1px solid #334155;
+    }
+    
+    /* Input styling */
+    .stTextInput > div > div > input {
+        background-color: #1e293b;
+        color: white;
+        border: 1px solid #334155;
+    }
+    
+    .stSelectbox > div > div {
+        background-color: #1e293b;
+        color: white;
+        border: 1px solid #334155;
+    }
+    
+    /* Badge styling */
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    
+    .badge-green {
+        background-color: rgba(16, 185, 129, 0.2);
+        color: #10b981;
+    }
+    
+    .badge-red {
+        background-color: rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+    }
+    
+    .badge-blue {
+        background-color: rgba(59, 130, 246, 0.2);
+        color: #3b82f6;
+    }
+    
+    .badge-yellow {
+        background-color: rgba(234, 179, 8, 0.2);
+        color: #eab308;
+    }
+    
+    /* Divider */
+    .divider {
+        height: 1px;
+        background-color: #334155;
+        margin: 1rem 0;
+    }
+    
+    /* Logo styling */
+    .logo-container {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .logo {
+        background-color: #10b981;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 0.375rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Search box styling */
+    .search-container {
+        background-color: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 0.375rem;
+        padding: 0.5rem 1rem;
+        display: flex;
+        align-items: center;
+    }
+    
+    /* Hide Streamlit branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    
+    /* Adjust dataframe styling */
+    .dataframe {
+        background-color: #1e293b !important;
+        color: white !important;
+    }
+    
+    .dataframe th {
+        background-color: #334155 !important;
+        color: white !important;
+    }
+    
+    .dataframe td {
+        background-color: #1e293b !important;
+        color: white !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Sample data for demonstration
+@st.cache_data
+def load_stock_data():
+    # This would be replaced with actual API calls in a real app
+    dates = pd.date_range(start='2024-01-01', end='2025-03-31', freq='D')
+    np.random.seed(42)
+    
+    # Generate price data
+    base_price = 180
+    price = base_price + np.cumsum(np.random.normal(0, 1, len(dates))) * 0.5
+    
+    # Ensure the final price is 196.98 as in the screenshots
+    price = price * (196.98 / price[-1])
+    
+    # Generate volume data
+    volume = np.random.normal(100000000, 20000000, len(dates))
+    volume = np.abs(volume)
+    
+    df = pd.DataFrame({
+        'date': dates,
+        'price': price,
+        'volume': volume,
+        'sma_20': np.nan,
+        'sma_50': np.nan
+    })
+    
+    # Calculate SMAs
+    df['sma_20'] = df['price'].rolling(window=20).mean()
+    df['sma_50'] = df['price'].rolling(window=50).mean()
+    
+    return df
+
+# Sample news data
+news_data = [
+    {
+        "title": "TSMC Confident Amid Trump Tariff Turmoil: CEO CC Wei Says No Change In Customer Behavior",
+        "subtitle": "Despite Nvidia H20 Chip Curbs - NVIDIA (NASDAQ:NVDA), Apple (NASDAQ:AAPL)",
+        "content": "Taiwan Semiconductor Manufacturing Co. Ltd. TSM remains optimistic despite ongoing geopolitical tensions. CEO CC Wei stated that customer behavior has not changed, even amid recent challenges such as the Nvidia Corporation NVDA H20 chip facing clamdown and tariff-related uncertainties.",
+        "source": "Benzinga",
+        "sentiment": "Neutral",
+        "date": "4/17/2025"
+    },
+    {
+        "title": "Top Analyst Reports for Apple, Philip Morris & Sony",
+        "subtitle": "",
+        "content": "Today's Research Daily features new research reports on 16 major stocks, including Bank of Apple Inc. (AAPL), Philip Morris International Inc. (PM) and Sony Group Corp. (SONY), as well as a micro-cap stock Vaso Corp. (VASO).",
+        "source": "Zacks Commentary",
+        "sentiment": "Neutral",
+        "date": "4/17/2025"
+    },
+    {
+        "title": "Google Scores Partial Win In Antitrust Case But Faces Setback On Publisher Tools",
+        "subtitle": "Alphabet (NASDAQ:GOOGL)",
+        "content": "US Department of Justice wins antitrust case against Google, ruling it maintained a monopoly in ad tech through anticompetitive practices. Google faces appeals after court dismisses some antitrust claims but supports the Justice Department's push for a breakup.",
+        "source": "Benzinga",
+        "sentiment": "Neutral",
+        "date": "4/17/2025"
+    }
+]
+
+# Sample prediction data
+prediction_data = [
+    {"period": "1 Day", "direction": "UP", "confidence": 70.7, "target_price": 196.62, "percent_change": -0.19, "high": 198.38, "low": 194.85},
+    {"period": "1 Week", "direction": "NEUTRAL", "confidence": 0.0, "target_price": 196.98, "percent_change": 0.00, "high": 202.29, "low": 191.67},
+    {"period": "1 Month", "direction": "UP", "confidence": 60.2, "target_price": 195.82, "percent_change": -0.59, "high": 204.67, "low": 186.98},
+    {"period": "3 Months", "direction": "UP", "confidence": 55.0, "target_price": 192.33, "percent_change": -2.36, "high": 206.48, "low": 178.18},
+    {"period": "6 Months", "direction": "UP", "confidence": 51.9, "target_price": 186.29, "percent_change": -5.43, "high": 207.52, "low": 165.07}
+]
+
+# Header with logo and search
+st.markdown("""
+<div class="main-header">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="logo-container">
+            <div class="logo">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #0f172a;">
+                    <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
+                    <polyline points="16 7 22 7 22 13"></polyline>
+                </svg>
+            </div>
+            <div>
+                <h1 style="margin: 0; font-size: 1.25rem; font-weight: bold;">StockSavvy</h1>
+                <p style="margin: 0; font-size: 0.75rem; color: #94a3b8;">Advanced Technical & Fundamental Analysis</p>
+            </div>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# Sidebar for search and filters
+with st.sidebar:
+    st.markdown("""
+    <div class="logo-container" style="margin-bottom: 2rem;">
+        <div class="logo">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #0f172a;">
+                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
+                <polyline points="16 7 22 7 22 13"></polyline>
+            </svg>
+        </div>
+        <div>
+            <h1 style="margin: 0; font-size: 1.25rem; font-weight: bold;">StockSavvy</h1>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("<p style='color: #94a3b8; margin-bottom: 0.5rem;'>Search stocks and crypto</p>", unsafe_allow_html=True)
+    search = st.text_input("", value="AAPL", label_visibility="collapsed")
+    
+    st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
+    
+    st.markdown("<p style='color: #94a3b8; margin-bottom: 0.5rem;'>Quick Filters</p>", unsafe_allow_html=True)
+    filter_options = st.multiselect(
+        "",
+        ["Stocks", "Crypto", "ETFs", "Forex"],
+        default=["Stocks"],
+        label_visibility="collapsed"
+    )
+    
+    st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
+    
+    st.markdown("<p style='color: #94a3b8; margin-bottom: 0.5rem;'>Watchlist</p>", unsafe_allow_html=True)
+    watchlist = st.selectbox(
+        "",
+        ["AAPL - Apple Inc.", "MSFT - Microsoft Corp.", "GOOGL - Alphabet Inc.", "AMZN - Amazon.com Inc."],
+        label_visibility="collapsed"
+    )
+    
+    st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
+    
+    st.markdown("<p style='color: #94a3b8; margin-bottom: 0.5rem;'>Time Period</p>", unsafe_allow_html=True)
+    time_period = st.select_slider(
+        "",
+        options=["1D", "1W", "1M", "3M", "6M", "1Y", "5Y", "MAX"],
+        value="1Y",
+        label_visibility="collapsed"
+    )
+
+# Stock overview section
+col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+
+with col1:
+    st.markdown("""
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <div style="background-color: rgba(59, 130, 246, 0.2); color: #3b82f6; height: 2.5rem; width: 2.5rem; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; font-weight: 600;">
+            AAPL
+        </div>
+        <div>
+            <h2 style="margin: 0; font-size: 1.5rem; font-weight: bold;">Apple Inc.</h2>
+            <span style="font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 0.25rem; background-color: #1e293b; color: #94a3b8;">Major Exchange</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col2:
+    st.markdown("""
+    <div class="metric-container">
+        <div class="metric-label">Current Price</div>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <div class="metric-value">$196.98</div>
+            <span class="badge badge-green">+1.39%</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col3:
+    st.markdown("""
+    <div class="metric-container">
+        <div class="metric-label">Market Cap</div>
+        <div class="metric-value">$2.71T</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col4:
+    st.markdown("""
+    <div class="metric-container">
+        <div class="metric-label">P/E Ratio</div>
+        <div class="metric-value">28.92</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Tabs for different sections
+tab1, tab2, tab3, tab4 = st.tabs(["Technical Analysis", "Price Prediction", "News", "Backtesting"])
+
+with tab1:
+    # Technical Analysis Tab
+    col1, col2 = st.columns([7, 3])
+    
+    with col1:
+        st.markdown('<div class="css-card">', unsafe_allow_html=True)
+        st.markdown('<h3 style="margin-top: 0;">Stock Price Chart</h3>', unsafe_allow_html=True)
+        
+        # Load stock data
+        df = load_stock_data()
+        
+        # Create subplot with 2 rows
+        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, 
+                           vertical_spacing=0.03, row_heights=[0.7, 0.3])
+        
+        # Add price chart
+        fig.add_trace(
+            go.Scatter(
+                x=df['date'], 
+                y=df['price'],
+                mode='lines',
+                name='Price',
+                line=dict(color='#10b981', width=2)
+            ),
+            row=1, col=1
+        )
+        
+        # Add SMA lines
+        fig.add_trace(
+            go.Scatter(
+                x=df['date'], 
+                y=df['sma_20'],
+                mode='lines',
+                name='SMA 20',
+                line=dict(color='#3b82f6', width=1.5, dash='dash')
+            ),
+            row=1, col=1
+        )
+        
+        fig.add_trace(
+            go.Scatter(
+                x=df['date'], 
+                y=df['sma_50'],
+                mode='lines',
+                name='SMA 50',
+                line=dict(color='#f59e0b', width=1.5, dash='dash')
+            ),
+            row=1, col=1
+        )
+        
+        # Add volume chart
+        fig.add_trace(
+            go.Bar(
+                x=df['date'], 
+                y=df['volume'],
+                name='Volume',
+                marker=dict(color='#3b82f6', opacity=0.5)
+            ),
+            row=2, col=1
+        )
+        
+        # Update layout
+        fig.update_layout(
+            height=500,
+            template='plotly_dark',
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            margin=dict(l=0, r=0, t=0, b=0),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            ),
+            xaxis2=dict(
+                showgrid=True,
+                gridcolor='#334155',
+                showticklabels=True
+            ),
+            yaxis=dict(
+                showgrid=True,
+                gridcolor='#334155'
+            ),
+            yaxis2=dict(
+                showgrid=True,
+                gridcolor='#334155'
+            )
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col2:
+        # Technical Analysis Summary
+        st.markdown("""
+        <div class="css-card">
+            <h3 style="margin-top: 0;">Technical Analysis Summary</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <span style="color: #94a3b8;">Current Price</span>
+                <span style="font-weight: 600;">$196.98</span>
+            </div>
+            
+            <div class="divider"></div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <div style="color: #94a3b8; font-size: 0.875rem; margin-bottom: 0.25rem;">RSI</div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-weight: 600;">40.93</span>
+                        <span class="badge badge-yellow">Neutral</span>
+                    </div>
+                </div>
+                
+                <div>
+                    <div style="color: #94a3b8; font-size: 0.875rem; margin-bottom: 0.25rem;">MACD</div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-weight: 600;">-7.78</span>
+                        <span class="badge badge-red">Bearish</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="divider"></div>
+            
+            <h4 style="font-weight: 500; margin-bottom: 0.5rem;">Buy Signals</h4>
+            <div style="display: flex; align-items: center; gap: 0.5rem; color: #94a3b8; margin-bottom: 1rem;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <span style="font-size: 0.875rem;">No buy signals detected</span>
+            </div>
+            
+            <h4 style="font-weight: 500; margin-bottom: 0.5rem;">Sell Signals</h4>
+            <div style="display: flex; align-items: center; gap: 0.5rem; color: #94a3b8;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <span style="font-size: 0.875rem;">No sell signals detected</span>
+            </div>
+        </div>
+        
+        <div class="css-card">
+            <h3 style="margin-top: 0;">Moving Averages</h3>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <div>
+                    <div style="color: #94a3b8; font-size: 0.875rem;">SMA 20</div>
+                    <div style="font-weight: 600;">$204.56</div>
+                </div>
+                <span class="badge badge-red">Below</span>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <div>
+                    <div style="color: #94a3b8; font-size: 0.875rem;">SMA 50</div>
+                    <div style="font-weight: 600;">$210.32</div>
+                </div>
+                <span class="badge badge-red">Below</span>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="color: #94a3b8; font-size: 0.875rem;">SMA 200</div>
+                    <div style="font-weight: 600;">$190.45</div>
+                </div>
+                <span class="badge badge-green">Above</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+with tab2:
+    # Price Prediction Tab
+    st.markdown("""
+    <div class="css-card">
+        <h3 style="margin-top: 0;">Price Prediction Model</h3>
+        <p style="color: #94a3b8;">
+            Our advanced price prediction model utilizes a combination of machine learning techniques, technical
+            indicators, seasonal patterns, and market regime analysis.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Create columns for prediction cards
+    cols = st.columns(3)
+    
+    # Display prediction cards
+    for i, pred in enumerate(prediction_data):
+        col_idx = i % 3
+        
+        # Determine direction badge
+        if pred["direction"] == "UP":
+            direction_badge = '<span class="badge badge-green">UP</span>'
+        elif pred["direction"] == "DOWN":
+            direction_badge = '<span class="badge badge-red">DOWN</span>'
+        else:
+            direction_badge = '<span class="badge badge-blue">NEUTRAL</span>'
+        
+        # Determine percent change color
+        if pred["percent_change"] > 0:
+            percent_change_color = "#10b981"
+            percent_change_prefix = "+"
+        elif pred["percent_change"] < 0:
+            percent_change_color = "#ef4444"
+            percent_change_prefix = ""
+        else:
+            percent_change_color = "#94a3b8"
+            percent_change_prefix = ""
+        
+        with cols[col_idx]:
+            st.markdown(f"""
+            <div class="css-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <h3 style="margin: 0;">{pred["period"]} Forecast</h3>
+                    {direction_badge}
+                </div>
+                
+                <div style="margin-bottom: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                        <span style="color: #94a3b8; font-size: 0.875rem;">Confidence</span>
+                        <span style="font-size: 0.875rem; font-weight: 500;">{pred["confidence"]}%</span>
+                    </div>
+                    <div style="height: 0.5rem; background-color: #1e293b; border-radius: 9999px; overflow: hidden;">
+                        <div style="height: 100%; width: {pred["confidence"]}%; background-color: #3b82f6;"></div>
+                    </div>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <span style="color: #94a3b8;">Target Price</span>
+                    <div style="display: flex; align-items: center; gap: 0.25rem;">
+                        <span style="font-weight: 600;">${pred["target_price"]}</span>
+                        <span style="font-size: 0.75rem; color: {percent_change_color};">
+                            ({percent_change_prefix}{pred["percent_change"]}%)
+                        </span>
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                    <div>
+                        <div style="color: #94a3b8; font-size: 0.875rem; margin-bottom: 0.25rem;">Predicted High</div>
+                        <div style="font-weight: 600;">${pred["high"]}</div>
+                    </div>
+                    
+                    <div>
+                        <div style="color: #94a3b8; font-size: 0.875rem; margin-bottom: 0.25rem;">Predicted Low</div>
+                        <div style="font-weight: 600;">${pred["low"]}</div>
+                    </div>
+                </div>
+                
+                <div>
+                    <div style="position: relative; height: 0.5rem; background-color: #1e293b; border-radius: 9999px; overflow: hidden; margin-bottom: 0.25rem;">
+                        <div style="position: absolute; left: 0; top: 0; height: 100%; background-color: #475569; width: {((pred["target_price"] - pred["low"]) / (pred["high"] - pred["low"])) * 100}%;"></div>
+                        <div style="position: absolute; left: {((196.98 - pred["low"]) / (pred["high"] - pred["low"])) * 100}%; top: 0; height: 100%; background-color: #3b82f6; width: 1px;"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-top: 0.25rem;">
+                        <span style="font-size: 0.75rem; color: #94a3b8;">${pred["low"]}</span>
+                        <span style="font-size: 0.75rem; color: #94a3b8;">${pred["high"]}</span>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+with tab3:
+    # News Tab
+    for news in news_data:
+        st.markdown(f"""
+        <div class="css-card">
+            <h3 style="margin-top: 0;">{news["title"]}</h3>
+            {f'<p style="color: #94a3b8; margin-top: 0.25rem;">{news["subtitle"]}</p>' if news["subtitle"] else ''}
+            <p style="margin-top: 0.5rem;">{news["content"]}</p>
+            <div style="display: flex; justify-content: space-between; margin-top: 1rem; border-top: 1px solid #334155; padding-top: 0.75rem; font-size: 0.875rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="color: #94a3b8;">Source: {news["source"]}</span>
+                    <span class="badge badge-blue">{news["sentiment"]}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.25rem; color: #3b82f6; cursor: pointer;">
+                    <span>Read more</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                    </svg>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+with tab4:
+    # Backtesting Tab
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        st.markdown("""
+        <div class="css-card">
+            <h3 style="margin-top: 0;">Backtest Parameters</h3>
+            <p style="color: #94a3b8; margin-top: 0.25rem; margin-bottom: 1rem;">Configure your strategy parameters</p>
+            
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; margin-bottom: 0.5rem; font-size: 0.875rem;">Strategy</label>
+                <div class="search-container">
+                    <span>Momentum</span>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; margin-bottom: 0.5rem; font-size: 0.875rem;">Time Period</label>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <div class="search-container" style="flex: 1;">
+                        <span>01/01/2024</span>
+                    </div>
+                    <span>to</span>
+                    <div class="search-container" style="flex: 1;">
+                        <span>03/31/2025</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; margin-bottom: 0.5rem; font-size: 0.875rem;">Initial Capital</label>
+                <div class="search-container">
+                    <span>$10,000</span>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <label style="font-size: 0.875rem;">Risk Level</label>
+                    <span style="font-size: 0.75rem; color: #94a3b8;">Medium</span>
+                </div>
+                <div style="height: 0.5rem; background-color: #1e293b; border-radius: 9999px; overflow: hidden;">
+                    <div style="height: 100%; width: 50%; background-color: #3b82f6;"></div>
+                </div>
+            </div>
+            
+            <button style="width: 100%; background-color: #10b981; color: white; border: none; border-radius: 0.375rem; padding: 0.75rem 1rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                Run Backtest
+            </button>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div class="css-card">
+            <h3 style="margin-top: 0;">Backtest Results</h3>
+            <p style="color: #94a3b8; margin-top: 0.25rem; margin-bottom: 1rem;">Strategy performance vs. benchmark</p>
+        """, unsafe_allow_html=True)
+        
+        # Create backtest data
+        dates = pd.date_range(start='2024-01-01', end='2025-03-31', freq='M')
+        np.random.seed(42)
+        
+        strategy_returns = np.random.normal(0.05, 0.03, len(dates))
+        benchmark_returns = np.random.normal(0.025, 0.02, len(dates))
+        
+        strategy_value = 10000 * np.cumprod(1 + strategy_returns)
+        benchmark_value = 10000 * np.cumprod(1 + benchmark_returns)
+        
+        backtest_df = pd.DataFrame({
+            'date': dates,
+            'strategy': strategy_value,
+            'benchmark': benchmark_value
+        })
+        
+        # Create backtest chart
+        fig = go.Figure()
+        
+        fig.add_trace(
+            go.Scatter(
+                x=backtest_df['date'], 
+                y=backtest_df['strategy'],
+                mode='lines',
+                name='Momentum Strategy',
+                line=dict(color='#10b981', width=2)
+            )
+        )
+        
+        fig.add_trace(
+            go.Scatter(
+                x=backtest_df['date'], 
+                y=backtest_df['benchmark'],
+                mode='lines',
+                name='S&P 500',
+                line=dict(color='#3b82f6', width=2)
+            )
+        )
+        
+        fig.update_layout(
+            height=400,
+            template='plotly_dark',
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            margin=dict(l=0, r=0, t=0, b=0),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            ),
+            xaxis=dict(
+                showgrid=True,
+                gridcolor='#334155',
+                showticklabels=True
+            ),
+            yaxis=dict(
+                showgrid=True,
+                gridcolor='#334155',
+                tickprefix='$',
+                tickformat=',.'
+            )
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Stats grid
+        st.markdown("""
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-top: 1.5rem;">
+                <div style="background-color: rgba(30, 41, 59, 0.5); border-radius: 0.5rem; padding: 0.75rem;">
+                    <div style="font-size: 0.875rem; color: #94a3b8; margin-bottom: 0.25rem;">Total Return</div>
+                    <div style="font-size: 1.25rem; font-weight: bold;">75.0%</div>
+                    <div style="font-size: 0.75rem; color: #10b981;">vs. 30.0%</div>
+                </div>
+                
+                <div style="background-color: rgba(30, 41, 59, 0.5); border-radius: 0.5rem; padding: 0.75rem;">
+                    <div style="font-size: 0.875rem; color: #94a3b8; margin-bottom: 0.25rem;">Annualized Return</div>
+                    <div style="font-size: 1.25rem; font-weight: bold;">56.3%</div>
+                    <div style="font-size: 0.75rem; color: #10b981;">vs. 22.5%</div>
+                </div>
+                
+                <div style="background-color: rgba(30, 41, 59, 0.5); border-radius: 0.5rem; padding: 0.75rem;">
+                    <div style="font-size: 0.875rem; color: #94a3b8; margin-bottom: 0.25rem;">Sharpe Ratio</div>
+                    <div style="font-size: 1.25rem; font-weight: bold;">1.85</div>
+                    <div style="font-size: 0.75rem; color: #10b981;">vs. 1.20</div>
+                </div>
+                
+                <div style="background-color: rgba(30, 41, 59, 0.5); border-radius: 0.5rem; padding: 0.75rem;">
+                    <div style="font-size: 0.875rem; color: #94a3b8; margin-bottom: 0.25rem;">Max Drawdown</div>
+                    <div style="font-size: 1.25rem; font-weight: bold;">-8.3%</div>
+                    <div style="font-size: 0.75rem; color: #ef4444;">vs. -5.2%</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# Run the app
+if __name__ == "__main__":
+    st.write("StockSavvy App is running")

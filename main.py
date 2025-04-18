@@ -1,5 +1,9 @@
 import streamlit as st
 import pandas as pd
+import datetime
+import numpy as np
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from utils.stock_data import get_stock_data, get_stock_info, search_stocks, is_crypto, format_crypto_symbol
 from utils.technical_analysis import generate_signals
 from utils.fundamental_analysis import get_fundamental_metrics, analyze_fundamentals, format_market_cap
@@ -11,7 +15,7 @@ from components.signals import display_signals, display_technical_summary
 
 # Page configuration
 st.set_page_config(
-    page_title="Stock Analysis Platform",
+    page_title="StockSavvy - Advanced Stock Analysis",
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -29,44 +33,76 @@ try:
 except Exception as e:
     st.warning(f"Custom styling could not be loaded: {str(e)}")
 
-# Modern app header with logo and search
-col1, col2 = st.columns([1, 3])
-
-with col1:
-    st.markdown("""
-        <div style="text-align: center; padding: 10px;">
-            <img src="https://img.icons8.com/fluency/96/000000/economic-improvement.png" width="80" />
-        </div>
-    """, unsafe_allow_html=True)
-
-with col2:
-    st.markdown("""
-        <h1 class="stock-header">Finance Analytics Hub</h1>
-        <p style="margin-top: -15px; margin-bottom: 20px; color: rgba(255,255,255,0.7);">
-            Advanced Technical & Fundamental Analysis Platform
-        </p>
-    """, unsafe_allow_html=True)
-
-# Create modern search box with autocomplete
+# Header with logo and search
 st.markdown("""
-    <style>
-    div[data-testid="stFormSubmitButton"] {
-        visibility: hidden;
-        height: 0px;
-    }
-    </style>
+<div class="main-header">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="logo-container">
+            <div class="logo">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #0f172a;">
+                    <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
+                    <polyline points="16 7 22 7 22 13"></polyline>
+                </svg>
+            </div>
+            <div>
+                <h1 style="margin: 0; font-size: 1.25rem; font-weight: bold;">StockSavvy</h1>
+                <p style="margin: 0; font-size: 0.75rem; color: #94a3b8;">Advanced Technical & Fundamental Analysis</p>
+            </div>
+        </div>
+    </div>
+</div>
 """, unsafe_allow_html=True)
 
-search_container = st.container()
-with search_container:
-    st.markdown('<div style="margin-bottom: 20px; padding: 10px; background: rgba(38, 39, 48, 0.3); border-radius: 10px;">', unsafe_allow_html=True)
-    search_query = st.text_input(
-        "🔍 Search stocks and crypto",
-        value="",
-        placeholder="Enter symbol (e.g., AAPL, BTC-USD) or company name",
-        key="search_box"
+# Sidebar for search and filters
+with st.sidebar:
+    st.markdown("""
+    <div class="logo-container" style="margin-bottom: 2rem;">
+        <div class="logo">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #0f172a;">
+                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
+                <polyline points="16 7 22 7 22 13"></polyline>
+            </svg>
+        </div>
+        <div>
+            <h1 style="margin: 0; font-size: 1.25rem; font-weight: bold;">StockSavvy</h1>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("<p style='color: #94a3b8; margin-bottom: 0.5rem;'>Search stocks and crypto</p>", unsafe_allow_html=True)
+    search_query = st.text_input("", value="", placeholder="Enter symbol (e.g., AAPL) or name", label_visibility="collapsed")
+    
+    st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
+    
+    st.markdown("<p style='color: #94a3b8; margin-bottom: 0.5rem;'>Quick Filters</p>", unsafe_allow_html=True)
+    filter_options = st.multiselect(
+        "",
+        ["Stocks", "Crypto", "ETFs", "Forex"],
+        default=["Stocks"],
+        label_visibility="collapsed"
     )
-    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
+    
+    st.markdown("<p style='color: #94a3b8; margin-bottom: 0.5rem;'>Featured Assets</p>", unsafe_allow_html=True)
+    if st.button("AAPL - Apple Inc."):
+        search_query = "AAPL"
+    if st.button("MSFT - Microsoft Corp."):
+        search_query = "MSFT"
+    if st.button("GOOGL - Alphabet Inc."):
+        search_query = "GOOGL"
+    if st.button("BTC-USD - Bitcoin"):
+        search_query = "BTC-USD"
+    
+    st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
+    
+    st.markdown("<p style='color: #94a3b8; margin-bottom: 0.5rem;'>Time Period</p>", unsafe_allow_html=True)
+    time_period = st.select_slider(
+        "",
+        options=["1D", "1W", "1M", "3M", "6M", "1Y", "5Y", "MAX"],
+        value="1Y",
+        label_visibility="collapsed"
+    )
 
 if search_query:
     with st.spinner('🔍 Searching financial markets...'):
