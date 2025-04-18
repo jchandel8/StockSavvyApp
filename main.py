@@ -129,20 +129,29 @@ if search_query:
             # Extract the ticker from the selected option
             # Format is "📈 AAPL - Apple Inc. (Major Exchange)"
             if selected:
-                # First split by the dash to get "📈 AAPL "
-                first_part = selected.split(' - ')[0].strip()
-                # Then split by space to get ["📈", "AAPL"]
-                ticker = first_part.split(' ')[-1]
+                # Log the selection for debugging
+                print(f"Selected option: {selected}")
                 
-                # Log for debugging
-                st.write(f"Selected: {selected}")
-                st.write(f"Extracted ticker: {ticker}")
-                
-                # Update session state
-                st.session_state.ticker = ticker
-                
-                # Rerun the app to show the selected ticker
-                st.rerun()
+                # Get the first part before the dash
+                parts = selected.split(' - ')
+                if len(parts) > 0:
+                    # Extract ticker symbol (it's after the emoji)
+                    first_part = parts[0].strip()
+                    words = first_part.split()
+                    
+                    # The ticker should be the second element (after emoji)
+                    if len(words) >= 2:
+                        ticker = words[1]
+                    else:
+                        ticker = first_part  # Fallback if no space found
+                    
+                    # Update session state with the extracted ticker
+                    st.session_state.ticker = ticker
+                    
+                    # Rerun the app to show the selected ticker
+                    st.rerun()
+                else:
+                    ticker = None
             else:
                 ticker = None
         else:
@@ -229,6 +238,11 @@ if ticker:
             
             # Create price chart using plotly
             df_with_indicators = calculate_indicators(df)
+            
+            # Make sure we have a Date column for plotting
+            if 'Date' not in df.columns and isinstance(df.index, pd.DatetimeIndex):
+                df['Date'] = df.index
+                df_with_indicators['Date'] = df.index
             
             # Create subplot with 2 rows
             fig = make_subplots(rows=2, cols=1, shared_xaxes=True, 
