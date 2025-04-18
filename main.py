@@ -393,86 +393,21 @@ if ticker:
             st.markdown('</div>', unsafe_allow_html=True)
         
         with col2:
-            # Technical Analysis Summary panel
-            st.markdown("""
-            <div class="card">
-                <h3 style="margin-top: 0; margin-bottom: 1rem;">Technical Analysis Summary</h3>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
-                    <span>Current Price</span>
-                    <span style="font-weight: 600;">$196.98</span>
-                </div>
-                
-                <div style="height: 1px; background-color: #1a2234; margin: 1rem 0;"></div>
-                
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                    <div>
-                        <div style="color: #94a3b8; font-size: 0.875rem; margin-bottom: 0.25rem;">RSI</div>
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-weight: 600;">40.93</span>
-                            <span class="badge-yellow badge">Neutral</span>
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <div style="color: #94a3b8; font-size: 0.875rem; margin-bottom: 0.25rem;">MACD</div>
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-weight: 600;">-7.78</span>
-                            <span class="badge-red badge">Bearish</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div style="height: 1px; background-color: #1a2234; margin: 1rem 0;"></div>
-                
-                <h4 style="font-weight: 500; margin-bottom: 0.5rem;">Buy Signals</h4>
-                <div style="display: flex; align-items: center; gap: 0.5rem; color: #94a3b8; margin-bottom: 1rem;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="12" y1="8" x2="12" y2="12"></line>
-                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                    </svg>
-                    <span style="font-size: 0.875rem;">No buy signals detected</span>
-                </div>
-                
-                <h4 style="font-weight: 500; margin-bottom: 0.5rem;">Sell Signals</h4>
-                <div style="display: flex; align-items: center; gap: 0.5rem; color: #94a3b8; margin-bottom: 1rem;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="12" y1="8" x2="12" y2="12"></line>
-                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                    </svg>
-                    <span style="font-size: 0.875rem;">No sell signals detected</span>
-                </div>
-            </div>
+            # Import our signal components
+            from components.signals import display_technical_summary, display_signals
             
-            <div class="card">
-                <h3 style="margin-top: 0; margin-bottom: 1rem;">Moving Averages</h3>
+            # Calculate technical signals
+            from utils.technical_analysis import generate_signals
+            signals = generate_signals(df)
+            
+            # Add a container with a card-like appearance
+            with st.container():
+                # Display technical analysis summary
+                display_technical_summary(df)
                 
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                    <span>SMA 20</span>
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <span style="font-weight: 600;">$204.56</span>
-                        <span class="badge-red badge">Below</span>
-                    </div>
-                </div>
-                
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                    <span>SMA 50</span>
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <span style="font-weight: 600;">$210.32</span>
-                        <span class="badge-red badge">Below</span>
-                    </div>
-                </div>
-                
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span>SMA 200</span>
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <span style="font-weight: 600;">$190.45</span>
-                        <span class="badge-green badge">Above</span>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+                # Display buy/sell signals
+                st.markdown("### Trading Signals")
+                display_signals(signals)
     
     # Price Prediction Tab
     with tabs[1]:
