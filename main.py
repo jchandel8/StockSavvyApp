@@ -107,24 +107,40 @@ if ticker:
                         with forecast_cols[1]:
                             st.metric("Confidence", f"{pred['confidence']*100:.1f}%")
                         with forecast_cols[2]:
-                            st.metric("Predicted High", f"${pred['predicted_high']:.2f}")
+                            high_val = pred.get('predicted_high')
+                            high_display = f"${high_val:.2f}" if high_val is not None else "N/A"
+                            st.metric("Predicted High", high_display)
                         with forecast_cols[3]:
-                            st.metric("Predicted Low", f"${pred['predicted_low']:.2f}")
+                            low_val = pred.get('predicted_low')
+                            low_display = f"${low_val:.2f}" if low_val is not None else "N/A"
+                            st.metric("Predicted Low", low_display)
                 
             with tabs[2]:
                 news = get_news(ticker)
-                for article in news:
-                    sentiment, color = format_news_sentiment(article['sentiment'])
-                    st.markdown(
-                        f"""
-                        <div style='padding: 10px; border-left: 5px solid {color}; margin: 10px 0;'>
-                            <h4>{article['title']}</h4>
-                            <p>{article['summary']}</p>
-                            <small>Source: {article['source']} | Sentiment: {sentiment}</small>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
+                if news:
+                    for article in news:
+                        # Safely get values with defaults
+                        title = article.get('title', 'No title available')
+                        summary = article.get('summary', 'No summary available')
+                        source = article.get('source', 'Unknown source')
+                        sentiment_val = article.get('sentiment', 0)
+                        
+                        # Format sentiment
+                        sentiment, color = format_news_sentiment(sentiment_val)
+                        
+                        # Display article
+                        st.markdown(
+                            f"""
+                            <div style='padding: 10px; border-left: 5px solid {color}; margin: 10px 0;'>
+                                <h4>{title}</h4>
+                                <p>{summary}</p>
+                                <small>Source: {source} | Sentiment: {sentiment}</small>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+                else:
+                    st.info("No news articles found for this asset.")
             
             with tabs[3]:
                 st.subheader("Strategy Backtesting")

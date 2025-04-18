@@ -98,9 +98,20 @@ def get_news(ticker: str, days: int = 7) -> list:
 
 def format_news_sentiment(sentiment: float) -> tuple:
     """Format news sentiment score with color coding."""
-    if sentiment >= 0.3:
-        return "Positive", "green"
-    elif sentiment <= -0.3:
-        return "Negative", "red"
-    else:
+    # Handle None or invalid values
+    if sentiment is None:
+        return "Neutral", "gray"
+    
+    try:
+        # Ensure sentiment is a float
+        sentiment_val = float(sentiment)
+        
+        if sentiment_val >= 0.3:
+            return "Positive", "green"
+        elif sentiment_val <= -0.3:
+            return "Negative", "red"
+        else:
+            return "Neutral", "gray"
+    except (ValueError, TypeError):
+        # Return neutral for any conversion errors
         return "Neutral", "gray"
