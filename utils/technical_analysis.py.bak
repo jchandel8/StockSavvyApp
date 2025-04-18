@@ -39,6 +39,91 @@ def calculate_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
         logger.error(f"Error calculating technical indicators: {str(e)}")
         return df
 
+# This is the legacy function, but renamed to avoid conflicts
+def legacy_generate_signals(df: pd.DataFrame) -> Dict[str, Any]:
+    """Legacy version of trading signal generation."""
+    if df is None or df.empty:
+        return {'status': 'no_data'}
+        
+    try:
+        signals = {
+            'buy_signals': [],
+            'sell_signals': [],
+            'status': 'loading'
+        }
+        
+        if len(df) < 50:
+            signals['status'] = 'missing_data'
+            return signals
+            
+        # Get latest values for signal generation
+        # Use safe getters to handle potential issues
+        def safe_get(df, column, idx=-1, default=0.0):
+            try:
+                val = df[column].iloc[idx]
+                return default if pd.isna(val) else val
+            except (IndexError, AttributeError, KeyError):
+                return default
+                
+        latest_values = {
+            'close_current': safe_get(df, 'Close', -1),
+            'close_prev': safe_get(df, 'Close', -2),
+            'rsi_current': safe_get(df, 'RSI', -1, 50.0),
+            'macd_current': safe_get(df, 'MACD', -1),
+            'macd_signal_current': safe_get(df, 'MACD_Signal', -1),
+            'macd_hist_current': safe_get(df, 'MACD', -1) - safe_get(df, 'MACD_Signal', -1),
+            'macd_hist_prev': safe_get(df, 'MACD', -2) - safe_get(df, 'MACD_Signal', -2),
+            'sma20_current': safe_get(df, 'SMA_20', -1),
+            'sma50_current': safe_get(df, 'SMA_50', -1),
+            'sma20_prev': safe_get(df, 'SMA_20', -2),
+            'sma50_prev': safe_get(df, 'SMA_50', -2),
+            'bb_upper': safe_get(df, 'BB_upper', -1),
+            'bb_lower': safe_get(df, 'BB_lower', -1)
+        }
+        
+        # RSI Signals
+        logger.info("Checking RSI signals")
+        if latest_values['rsi_current'] < 30:
+            signals['buy_signals'].append('RSI indicates oversold')
+            logger.info("RSI oversold signal generated")
+        elif latest_values['rsi_current'] > 70:
+            signals['sell_signals'].append('RSI indicates overbought')
+            logger.info("RSI overbought signal generated")
+        
+        # MACD Signals
+        logger.info("Checking MACD signals")
+        if latest_values['macd_hist_current'] > 0 and latest_values['macd_hist_prev'] <= 0:
+            signals['buy_signals'].append('MACD bullish crossover')
+            logger.info("MACD bullish crossover signal generated")
+        elif latest_values['macd_hist_current'] < 0 and latest_values['macd_hist_prev'] >= 0:
+            signals['sell_signals'].append('MACD bearish crossover')
+            logger.info("MACD bearish crossover signal generated")
+        
+        # Moving Average Signals
+        logger.info("Checking Moving Average signals")
+        if latest_values['close_current'] > latest_values['sma50_current'] and latest_values['sma20_current'] > latest_values['sma50_current']:
+            signals['buy_signals'].append('Price above moving averages')
+        elif latest_values['close_current'] < latest_values['sma50_current'] and latest_values['sma20_current'] < latest_values['sma50_current']:
+            signals['sell_signals'].append('Price below moving averages')
+        
+        # Bollinger Bands Signals
+        if latest_values['close_current'] <= latest_values['bb_lower']:
+            signals['buy_signals'].append('Price at Bollinger Band support')
+        elif latest_values['close_current'] >= latest_values['bb_upper']:
+            signals['sell_signals'].append('Price at Bollinger Band resistance')
+        
+        signals['status'] = 'complete'
+        return signals
+        
+    except Exception as e:
+        logger.error(f"Error generating signals: {str(e)}")
+        signals = {
+            'buy_signals': [],
+            'sell_signals': [],
+            'status': 'error'
+        }
+        return signals
+
 def calculate_rsi(data: pd.DataFrame, periods: int = 14) -> pd.Series:
     """Calculate RSI indicator."""
     try:
@@ -160,6 +245,151 @@ def calculate_indicators(df: pd.DataFrame, is_crypto: bool = False) -> pd.DataFr
         logger.error(f"Error calculating indicators: {str(e)}")
         st.error(f"Error calculating indicators: {str(e)}")
         return df
+
+def generate_signals(df: pd.DataFrame) -> dict:
+    """Generate trading signals based on technical indicators."""
+    signals = {
+        'buy_signals': [],
+        'sell_signals': [],
+        'reasoning': [],
+        'status': 'loading'  # New status field
+    }
+    
+    if df is None or df.empty:
+        logger.warning("No data available for signal generation")
+        signals['status'] = 'no_data'
+        return signals
+    
+    required_columns = ['Close', 'Open', 'High', 'Low', 'RSI', 'MACD_Hist', 'SMA_50']
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        logger.error(f"Missing required columns for signal generation: {missing_columns}")
+        signals['status'] = 'missing_data'
+        return signals
+    
+    try:
+        logger.info("Starting signal generation process")
+        
+        # Calculate new signals with proper error handling
+        try:
+            gap_and_go = calculate_gap_and_go_signals(df)
+        except Exception as e:
+            logger.warning(f"Error calculating gap_and_go signals: {str(e)}")
+            gap_and_go = pd.Series(False, index=df.index)
+            
+        try:
+            trend_continuation = calculate_trend_continuation(df)
+        except Exception as e:
+            logger.warning(f"Error calculating trend_continuation signals: {str(e)}")
+            trend_continuation = pd.Series(False, index=df.index)
+            
+        try:
+            fibonacci = calculate_fibonacci_signals(df)
+        except Exception as e:
+            logger.warning(f"Error calculating fibonacci signals: {str(e)}")
+            fibonacci = pd.Series(False, index=df.index)
+            
+        try:
+            weekly_trendline = calculate_weekly_trendline_break(df)
+        except Exception as e:
+            logger.warning(f"Error calculating weekly_trendline signals: {str(e)}")
+            weekly_trendline = pd.Series(False, index=df.index)
+        
+        # Get latest values with safe defaults for NaN values
+        latest_values = {}
+        
+        # Helper function to safely get values with defaults
+        def safe_get(series, idx=-1, default=0.0):
+            try:
+                val = series.iloc[idx]
+                return default if pd.isna(val) else val
+            except (IndexError, AttributeError, KeyError):
+                return default
+        
+        # Safely populate all values with defaults
+        latest_values = {
+            'rsi': safe_get(df['RSI'], -1, 50.0),  # Neutral RSI
+            'macd_hist_current': safe_get(df['MACD_Hist'], -1, 0.0),
+            'macd_hist_prev': safe_get(df['MACD_Hist'], -2, 0.0),
+            'close_current': safe_get(df['Close'], -1, 100.0),
+            'close_prev': safe_get(df['Close'], -2, 100.0),
+            'sma50_current': safe_get(df['SMA_50'], -1, 100.0),
+            'sma50_prev': safe_get(df['SMA_50'], -2, 100.0),
+            'gap_and_go': safe_get(gap_and_go, -1, False),
+            'trend_continuation': safe_get(trend_continuation, -1, False),
+            'fibonacci': safe_get(fibonacci, -1, False),
+            'weekly_trendline': safe_get(weekly_trendline, -1, False)
+        }
+        
+        # Check for NaN values in critical fields only
+        critical_fields = ['rsi', 'close_current', 'macd_hist_current']
+        nan_values = {k: v for k, v in latest_values.items() if k in critical_fields and pd.isna(v)}
+        if nan_values:
+            logger.warning(f"Critical NaN values found in: {list(nan_values.keys())}")
+            signals['status'] = 'invalid_data'
+            return signals
+        
+        # RSI Signals
+        logger.info("Checking RSI signals")
+        if latest_values['rsi'] < 30:
+            signals['buy_signals'].append('RSI oversold')
+            logger.info("RSI oversold signal generated")
+        elif latest_values['rsi'] > 70:
+            signals['sell_signals'].append('RSI overbought')
+            logger.info("RSI overbought signal generated")
+        
+        # MACD Signals
+        logger.info("Checking MACD signals")
+        if latest_values['macd_hist_current'] > 0 and latest_values['macd_hist_prev'] <= 0:
+            signals['buy_signals'].append('MACD bullish crossover')
+            logger.info("MACD bullish crossover signal generated")
+        elif latest_values['macd_hist_current'] < 0 and latest_values['macd_hist_prev'] >= 0:
+            signals['sell_signals'].append('MACD bearish crossover')
+            logger.info("MACD bearish crossover signal generated")
+        
+        # Moving Average Signals
+        logger.info("Checking Moving Average signals")
+        if (latest_values['close_current'] > latest_values['sma50_current'] and 
+            latest_values['close_prev'] <= latest_values['sma50_prev']):
+            signals['buy_signals'].append('Price crossed above 50-day MA')
+            logger.info("MA bullish crossover signal generated")
+        elif (latest_values['close_current'] < latest_values['sma50_current'] and 
+              latest_values['close_prev'] >= latest_values['sma50_prev']):
+            signals['sell_signals'].append('Price crossed below 50-day MA')
+            logger.info("MA bearish crossover signal generated")
+        
+        # Gap and Go Signals
+        logger.info("Checking Gap and Go signals")
+        if latest_values['gap_and_go']:
+            signals['buy_signals'].append('Gap and Go pattern detected')
+            logger.info("Gap and Go signal generated")
+        
+        # Trend Continuation Signals
+        logger.info("Checking Trend Continuation signals")
+        if latest_values['trend_continuation']:
+            signals['buy_signals'].append('Trend continuation confirmed')
+            logger.info("Trend continuation signal generated")
+        
+        # Fibonacci Signals
+        logger.info("Checking Fibonacci signals")
+        if latest_values['fibonacci']:
+            signals['buy_signals'].append('Fibonacci retracement level reached')
+            logger.info("Fibonacci signal generated")
+        
+        # Weekly Trendline Break Signals
+        logger.info("Checking Weekly Trendline Break signals")
+        if latest_values['weekly_trendline']:
+            signals['buy_signals'].append('Weekly trendline breakout')
+            logger.info("Weekly trendline break signal generated")
+        
+        signals['status'] = 'complete'
+        logger.info("Signal generation completed successfully")
+        return signals
+        
+    except Exception as e:
+        logger.error(f"Error generating signals: {str(e)}")
+        signals['status'] = 'error'
+        return signals
 
 def calculate_mvrv_ratio(df: pd.DataFrame) -> pd.Series:
     """Calculate Market Value to Realized Value (MVRV) ratio for cryptocurrencies."""
@@ -286,146 +516,97 @@ def calculate_weekly_trendline_break(df: pd.DataFrame) -> pd.Series:
     except Exception as e:
         logger.error(f"Error calculating weekly trendline breaks: {str(e)}")
         return pd.Series(index=df.index if df is not None else None)
+    except Exception as e:
+        logger.error(f"Error calculating Gap and Go signals: {str(e)}")
+        return pd.Series(index=df.index if df is not None else None)
 
-def generate_signals(df: pd.DataFrame) -> dict:
-    """Generate trading signals based on technical indicators."""
-    signals = {
-        'buy_signals': [],
-        'sell_signals': [],
-        'reasoning': [],
-        'status': 'loading'  # New status field
-    }
-    
-    if df is None or df.empty:
-        logger.warning("No data available for signal generation")
-        signals['status'] = 'no_data'
-        return signals
-    
-    required_columns = ['Close', 'Open', 'High', 'Low', 'RSI', 'MACD_Hist', 'SMA_50']
-    missing_columns = [col for col in required_columns if col not in df.columns]
-    if missing_columns:
-        logger.error(f"Missing required columns for signal generation: {missing_columns}")
-        signals['status'] = 'missing_data'
-        return signals
-    
+def calculate_trend_continuation(df: pd.DataFrame) -> pd.Series:
+    """Calculate trend continuation signals."""
     try:
-        logger.info("Starting signal generation process")
-        
-        # Calculate new signals with proper error handling
-        try:
-            gap_and_go = calculate_gap_and_go_signals(df)
-        except Exception as e:
-            logger.warning(f"Error calculating gap_and_go signals: {str(e)}")
-            gap_and_go = pd.Series(False, index=df.index)
+        if df is None or df.empty or 'Close' not in df.columns:
+            logger.error("Invalid data for Trend Continuation calculation")
+            return pd.Series(False, index=df.index if df is not None else None)
             
-        try:
-            trend_continuation = calculate_trend_continuation(df)
-        except Exception as e:
-            logger.warning(f"Error calculating trend_continuation signals: {str(e)}")
-            trend_continuation = pd.Series(False, index=df.index)
+        # Calculate trending conditions using both short and long-term MAs
+        sma20 = df['Close'].rolling(window=20).mean()
+        sma50 = df['Close'].rolling(window=50).mean()
+        
+        # Price above both MAs and 20 MA above 50 MA indicates uptrend
+        uptrend = (df['Close'] > sma20) & (sma20 > sma50)
+        
+        # Volume confirmation
+        volume_increase = df['Volume'] > df['Volume'].rolling(window=20).mean()
+        
+        # Combine signals
+        trend_continuation = uptrend & volume_increase
+        
+        return trend_continuation
+        
+    except Exception as e:
+        logger.error(f"Error calculating trend continuation: {str(e)}")
+        return pd.Series(False, index=df.index if df is not None else None)
+
+def calculate_fibonacci_signals(df: pd.DataFrame) -> pd.Series:
+    """Calculate Fibonacci retracement signals."""
+    try:
+        if df is None or df.empty or not all(col in df.columns for col in ['High', 'Low', 'Close']):
+            logger.error("Invalid data for Fibonacci signals calculation")
+            return pd.Series(False, index=df.index if df is not None else None)
             
-        try:
-            fibonacci = calculate_fibonacci_signals(df)
-        except Exception as e:
-            logger.warning(f"Error calculating fibonacci signals: {str(e)}")
-            fibonacci = pd.Series(False, index=df.index)
+        signals = pd.Series(False, index=df.index)
+        
+        # Calculate Fibonacci levels with a 20-day window
+        window = 20
+        for i in range(window, len(df)):
+            window_data = df.iloc[i-window:i]
+            high = window_data['High'].max()
+            low = window_data['Low'].min()
+            diff = high - low
             
-        try:
-            weekly_trendline = calculate_weekly_trendline_break(df)
-        except Exception as e:
-            logger.warning(f"Error calculating weekly_trendline signals: {str(e)}")
-            weekly_trendline = pd.Series(False, index=df.index)
-        
-        # Get latest values with safe defaults for NaN values
-        # Helper function to safely get values with defaults
-        def safe_get(series, idx=-1, default=0.0):
-            try:
-                val = series.iloc[idx]
-                return default if pd.isna(val) else val
-            except (IndexError, AttributeError, KeyError):
-                return default
-        
-        # Safely populate all values with defaults
-        latest_values = {
-            'rsi': safe_get(df['RSI'], -1, 50.0),  # Neutral RSI
-            'macd_hist_current': safe_get(df['MACD_Hist'], -1, 0.0),
-            'macd_hist_prev': safe_get(df['MACD_Hist'], -2, 0.0),
-            'close_current': safe_get(df['Close'], -1, 100.0),
-            'close_prev': safe_get(df['Close'], -2, 100.0),
-            'sma50_current': safe_get(df['SMA_50'], -1, 100.0),
-            'sma50_prev': safe_get(df['SMA_50'], -2, 100.0),
-            'gap_and_go': safe_get(gap_and_go, -1, False),
-            'trend_continuation': safe_get(trend_continuation, -1, False),
-            'fibonacci': safe_get(fibonacci, -1, False),
-            'weekly_trendline': safe_get(weekly_trendline, -1, False)
-        }
-        
-        # Check for NaN values in critical fields only
-        critical_fields = ['rsi', 'close_current', 'macd_hist_current']
-        nan_values = {k: v for k, v in latest_values.items() if k in critical_fields and pd.isna(v)}
-        if nan_values:
-            logger.warning(f"Critical NaN values found in: {list(nan_values.keys())}")
-            signals['status'] = 'invalid_data'
-            return signals
-        
-        # RSI Signals
-        logger.info("Checking RSI signals")
-        if latest_values['rsi'] < 30:
-            signals['buy_signals'].append('RSI oversold')
-            logger.info("RSI oversold signal generated")
-        elif latest_values['rsi'] > 70:
-            signals['sell_signals'].append('RSI overbought')
-            logger.info("RSI overbought signal generated")
-        
-        # MACD Signals
-        logger.info("Checking MACD signals")
-        if latest_values['macd_hist_current'] > 0 and latest_values['macd_hist_prev'] <= 0:
-            signals['buy_signals'].append('MACD bullish crossover')
-            logger.info("MACD bullish crossover signal generated")
-        elif latest_values['macd_hist_current'] < 0 and latest_values['macd_hist_prev'] >= 0:
-            signals['sell_signals'].append('MACD bearish crossover')
-            logger.info("MACD bearish crossover signal generated")
-        
-        # Moving Average Signals
-        logger.info("Checking Moving Average signals")
-        if (latest_values['close_current'] > latest_values['sma50_current'] and 
-            latest_values['close_prev'] <= latest_values['sma50_prev']):
-            signals['buy_signals'].append('Price crossed above 50-day MA')
-            logger.info("MA bullish crossover signal generated")
-        elif (latest_values['close_current'] < latest_values['sma50_current'] and 
-                latest_values['close_prev'] >= latest_values['sma50_prev']):
-            signals['sell_signals'].append('Price crossed below 50-day MA')
-            logger.info("MA bearish crossover signal generated")
-        
-        # Gap and Go Signals
-        logger.info("Checking Gap and Go signals")
-        if latest_values['gap_and_go']:
-            signals['buy_signals'].append('Gap and Go pattern detected')
-            logger.info("Gap and Go signal generated")
-        
-        # Trend Continuation Signals
-        logger.info("Checking Trend Continuation signals")
-        if latest_values['trend_continuation']:
-            signals['buy_signals'].append('Trend continuation confirmed')
-            logger.info("Trend continuation signal generated")
-        
-        # Fibonacci Signals
-        logger.info("Checking Fibonacci signals")
-        if latest_values['fibonacci']:
-            signals['buy_signals'].append('Fibonacci retracement level reached')
-            logger.info("Fibonacci signal generated")
-        
-        # Weekly Trendline Break Signals
-        logger.info("Checking Weekly Trendline Break signals")
-        if latest_values['weekly_trendline']:
-            signals['buy_signals'].append('Weekly trendline breakout')
-            logger.info("Weekly trendline break signal generated")
-        
-        signals['status'] = 'complete'
-        logger.info("Signal generation completed successfully")
+            # Key Fibonacci levels
+            fib_382 = high - diff * 0.382  # 38.2% retracement
+            fib_618 = high - diff * 0.618  # 61.8% retracement
+            
+            # Generate signal when price bounces from Fibonacci levels
+            current_price = df['Close'].iloc[i]
+            if (fib_382 * 0.99 <= current_price <= fib_382 * 1.01) or \
+               (fib_618 * 0.99 <= current_price <= fib_618 * 1.01):
+                signals.iloc[i] = True
+                
         return signals
         
     except Exception as e:
-        logger.error(f"Error generating signals: {str(e)}")
-        signals['status'] = 'error'
+        logger.error(f"Error calculating Fibonacci signals: {str(e)}")
+        return pd.Series(False, index=df.index if df is not None else None)
+
+def calculate_weekly_trendline_break(df: pd.DataFrame) -> pd.Series:
+    """Calculate weekly trendline breakout signals."""
+    try:
+        if df is None or df.empty or not all(col in df.columns for col in ['High', 'Low', 'Close']):
+            logger.error("Invalid data for Weekly Trendline Break calculation")
+            return pd.Series(False, index=df.index if df is not None else None)
+            
+        signals = pd.Series(False, index=df.index)
+        
+        # Calculate weekly high and low points
+        df['Week'] = df.index.isocalendar().week
+        weekly_highs = df.groupby('Week')['High'].max()
+        weekly_lows = df.groupby('Week')['Low'].min()
+        
+        # Look for breakouts from previous week's range
+        for i in range(1, len(df)):
+            current_week = df.index[i].isocalendar().week
+            prev_week = df.index[i-1].isocalendar().week
+            
+            if current_week != prev_week:
+                prev_high = weekly_highs[prev_week]
+                
+                # Breakout signal with 2% threshold
+                if df['Close'].iloc[i] > prev_high * 1.02:
+                    signals.iloc[i] = True
+                    
         return signals
+        
+    except Exception as e:
+        logger.error(f"Error calculating weekly trendline breaks: {str(e)}")
+        return pd.Series(False, index=df.index if df is not None else None)
