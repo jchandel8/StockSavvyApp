@@ -139,18 +139,53 @@ st.markdown("""
             <p style="margin: 0; font-size: 0.75rem; color: #94a3b8;">Advanced Technical & Fundamental Analysis</p>
         </div>
     </div>
-    <div class="search-container">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem;">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-        </svg>
 """, unsafe_allow_html=True)
 
-search_query = st.text_input("", value="", placeholder="Search stocks and crypto...", label_visibility="collapsed")
+# Create a container for the search bar to style it
+with st.container():
+    # Create a search bar that will be styled by CSS
+    search_query = st.text_input("", value="", placeholder="Search stocks and crypto...", label_visibility="collapsed", key="main_search")
 
+# Close the header container
 st.markdown("""
-    </div>
 </div>
+""", unsafe_allow_html=True)
+
+# Add CSS to properly style the search input
+st.markdown("""
+<style>
+.block-container div[data-testid="stVerticalBlock"] > div:nth-child(1) {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+}
+
+/* Style the search input to match the design */
+[data-testid="stForm"] {
+    background-color: #111827 !important;
+    border: 1px solid #1a2234 !important;
+    border-radius: 0.375rem !important;
+    padding: 0 0.75rem !important;
+    width: 16rem !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+[data-testid="stForm"]:before {
+    content: "" !important;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>') !important;
+    width: 16px !important;
+    height: 16px !important;
+    display: inline-block !important;
+    margin-right: 0.5rem !important;
+}
+
+/* Remove form padding and borders */
+[data-testid="stForm"] > div {
+    padding: 0 !important;
+    border: none !important;
+}
+</style>
 """, unsafe_allow_html=True)
 
 # Set default ticker to render the app
